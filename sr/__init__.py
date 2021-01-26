@@ -10,3 +10,4 @@ from . import materials
 from . import undulator
 from . import monochromator
 from . import slits
+from . import mirror
