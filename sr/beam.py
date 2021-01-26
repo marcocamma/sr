@@ -65,12 +65,16 @@ def _sqrt_squares(*K):
 
 
 def e_beam(lattice="EBS"):
-    lattice = lattice.casefold()
-    if not lattice in _e_lattices:
-        raise KeyError(
-            f"Can't find {lattice} in database; available lattices are (not case sensitive): {str(list(_e_lattices.keys()))}"
-        )
-    e = ds(_e_lattices[lattice].copy())
+    if isinstance(lattice,str):
+        lattice = lattice.casefold()
+        if not lattice in _e_lattices:
+            raise KeyError(
+                f"Can't find {lattice} in database; available lattices are (not case sensitive): {str(list(_e_lattices.keys()))}"
+            )
+        e = ds(_e_lattices[lattice].copy())
+    else:
+        e = ds(lattice.copy())
+        lattice = "source"
     e.emitth = e.sh * e.divh
     e.emittv = e.sv * e.divv
     e.betah = e.sh/e.divh
@@ -179,9 +183,7 @@ class Photon_Beam:
         self.wavelength = wavelength
         self.undulator_L = undulator_L
         self._calculate()
-        #print("sr.beam will use GSM parameters definition")
-        #print("that uses λ/4π, else the divergence is too small")
-        self._calculate_gsm_with_4pi()
+        self._calculate_gsm_with_DelRio()
 
     def rms_size_at_dist(self, D=100):
         sh = _sqrt_squares(self.sh, self.divh * D)
@@ -310,6 +312,25 @@ class Photon_Beam:
         self.gsm_cofv = self.gsm_qv / np.sqrt(4 + self.gsm_qv ** 2)
         self.gsm_cldivh = 1 / (2 * k * self.sh) * np.sqrt(4 + self.gsm_qh ** 2)
         self.gsm_cldivv = 1 / (2 * k * self.sv) * np.sqrt(4 + self.gsm_qv ** 2)
+
+    def _calculate_gsm_with_DelRio(self):
+        """
+        Calculate GSM parameters based on Manuel Del Rio
+        matching of the CF = (λ/2π) / ε_tanaka 
+        to the CF of the GSM; it results in
+        ξ = σ*CF/(1-CF)
+        """
+        w = self.wavelength*1e-10
+        emitt_coh = w/(2*np.pi)
+
+        k = 2*np.pi/w
+        # sclh = source coherence length horizontal
+        cfh = self.cofh
+        cfv = self.cofv
+        self.gsm_sclh = self.sh*cfh/(1-cfh)
+        self.gsm_cldivh = self.divh*cfh/(1-cfh)
+        self.gsm_sclv = self.sv*cfv/(1-cfv)
+        self.gsm_cldivv = self.divv*cfv/(1-cfv)
 
 
     def __str__(self):
