@@ -425,11 +425,12 @@ class Transfocator:
         self.n_lenses_tot = n_tot
 
     def find_best_set_for_focal_length(
-        self, energy=8, focal_length=10, accuracy_needed=0.1, verbose=False
+        self, energy=8, focal_length=10, accuracy_needed=0.1, verbose=False,
+        beam_fwhm = None
     ):
         """
-        find lensset that has best central ray tranmission and a certain
-        focal_length within the needed accuracy
+        find lensset that has a certain focal_length (within accuracy_needed)
+        and transmission if beam_fwhm is provided (and sort_by_transmission is
         """
         fl = [s.focal_length(energy) for s in self.all_sets]
         fl = np.asarray(fl)
@@ -449,11 +450,17 @@ class Transfocator:
                 energy=energy,
                 focal_length=focal_length,
                 accuracy_needed=2 * accuracy_needed,
+                verbose=verbose
             )
 
         good_lensets = self.all_sets[idx_good]
         transmission = [g.transmission_central_ray(energy) for g in good_lensets]
-        idx_best = np.argmax(transmission)
+        if beam_fwhm is not None:
+            transmission_gauss_beam = [g.transmission_gaussian_beam(energy,gauss_beam_fwhm=beam_fwhm) for g in good_lensets]
+            idx_best = np.argmax(transmission_gauss)
+        else:
+            idx_best = np.argmin(delta_fl[idx_good])
+            transmission_gauss_beam = None
         # deep copying best_lens_set in case it is modified as return value
         ret = ds(
             in_out=self.all_confs[idx_good][idx_best],
@@ -461,7 +468,7 @@ class Transfocator:
             best_lens_set=copy.deepcopy(self.all_sets[idx_good][idx_best]),
             all_delta_fl=delta_fl,
             good_lensets=self.all_sets[idx_good],
-            central_ray_transmission=transmission[idx_best],
+            transmission_central_ray=transmission[idx_best],
         )
         return ret
 

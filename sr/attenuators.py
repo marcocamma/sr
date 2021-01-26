@@ -5,7 +5,7 @@ from .materials import Wafer
 
 
 def front_end_transmission(E, diamond_thickness=300e-6):
-    cvd = Wafer(material="C", thickness=thickness, density=3.52)
+    cvd = Wafer(material="C", thickness=diamond_thickness, density=3.52)
     t = cvd.calc_transmission(E)
     return t
 

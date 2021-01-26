@@ -221,10 +221,12 @@ def propagate(
                 else:
                     _transfocator = transfocator
                 ret_transf = _transfocator.find_best_set_for_focal_length(
-                    energy=energy, focal_length=fl, accuracy_needed=min(fl / 1000, 0.1)
+                    energy=energy, focal_length=fl,
+                    accuracy_needed=min(fl / 1000, 0.1),
+                    beam_fwhm=None,
                 )
                 fl = ret_transf.focal_length
-                _log.append(f"Using transfocator, found set with FL of {fl:.3f} m")
+                _log.append(f"Using transfocator, found set with FL of {fl:.2f} m")
                 _log.append(
                     f"Using transfocator, using set {str(ret_transf.best_lens_set)}"
                 )

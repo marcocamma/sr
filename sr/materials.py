@@ -155,7 +155,14 @@ def get_material(material,density=None):
 @lru_cache(maxsize=1024)
 def get_refractive_index(material,density=None,energy=10):
     m = get_material(material,density=density)
-    return m.get_refractive_index(energy*1e3)
+    if isinstance(energy,(float,int,np.ndarray)):
+        energy = energy*1e3
+        ret = m.get_refractive_index(energy)
+    else:
+        # for tuples
+        ret = [m.get_refractive_index(e*1e3) for e in energy]
+        ret = np.asarray(ret)
+    return ret
 
 @lru_cache(maxsize=1024)
 def get_delta_beta(material,density=None,energy=10):
@@ -171,6 +178,7 @@ def _attenuation_length_nocache(material, density=None, energy=10):
                 Transmisison is then exp(-thickness/attenuation_length)
     """
     _,beta = get_delta_beta(material,density=density,energy=energy)
+    if isinstance(energy,(tuple,list)): energy = np.asarray(energy)
     wavelength = energy_to_wavelength(energy)
     attenuation_length = (wavelength * 1e-10) / (4 * np.pi * beta)
     return np.abs(attenuation_length)
@@ -191,6 +199,7 @@ def transmission(material="Si",thickness=1e-3,energy=10,density=None):
 
 class Wafer:
     def __init__(self, material="Si", thickness=10e-6, density=None):
+
         self.material = material
         self.thickness = thickness
         if density is None: density = get_density(material)
@@ -201,9 +210,9 @@ class Wafer:
             E in keV"""
         try:
             return attenuation_length(self.material, density=self.density, energy=E)
-        except TypeError:  # when E is unhashable
-            return _attenuation_length_nocache(
-                self.material, density=self.density, energy=E
+        except TypeError:  # when E is unhashable (ndarray)
+            return attenuation_length(
+                self.material, density=self.density, energy=tuple(E)
             )
 
     def calc_transmission(self, E):

@@ -330,6 +330,7 @@ class Undulator:
         e=[1, 30],
         ne=200,
         harmonic="auto",
+        abs_filter=None,
         **kwargs,
     ):
         """
@@ -354,6 +355,8 @@ class Undulator:
         harmonic : int|(min,max)|"auto"
             harmonic to consider, if auto it is autodetected based on energy range
             if int, only that harmonic is used
+        abs_filter : None or object with calc_transmission(energy_kev)
+                     method
         """
         import srwlib
         import srwlpy
@@ -433,6 +436,15 @@ class Undulator:
             )
             spectral_photon_flux = _integrate2d(h, v, spectral_photon_flux_density)
 
+        if abs_filter is not None:
+            t = abs_filter.calc_transmission(e)
+            spectral_photon_flux_density *= t[:,np.newaxis,np.newaxis]
+            spectral_photon_flux *= t
+            abs_info = "absorption filter : " + str(abs_filter)
+        else:
+            abs_info = "no absorption filter"
+
+
         data = ds(
             energy=e,
             h=h,
@@ -440,7 +452,7 @@ class Undulator:
             spectral_photon_flux_density=spectral_photon_flux_density,
             spectral_photon_flux=spectral_photon_flux,
             undulator_info=str(self),
-            info=f"harmonic = {str(harmonic)}",
+            info=f"harmonic = {str(harmonic)}, "+abs_info,
             ebeam=self.ebeam,
         )
         data = _photon_flux_density_helper(data)
@@ -538,6 +550,7 @@ class Undulator:
         e=[1, 30],
         ne=200,
         harmonic="auto",
+        abs_filter=None,
         **kwargs,
     ):
         """
@@ -622,6 +635,15 @@ class Undulator:
         spectral_photon_flux_density *= (dtheta * dpsi) / (dh * dv)
         spectral_photon_flux_density = np.swapaxes(spectral_photon_flux_density, 1, 2)
 
+        if abs_filter is not None:
+            t = abs_filter.calc_transmission(e)
+            spectral_photon_flux_density *= t[:,np.newaxis,np.newaxis]
+            abs_info = "absorption filter : " + str(abs_filter)
+        else:
+            abs_info = "no absorption filter"
+
+
+
         # integrate2d works only if len(axis) > 1
         if nh == 1 or nv == 1:
             spectral_photon_flux = spectral_photon_flux_density * (dh * dv)
@@ -635,7 +657,7 @@ class Undulator:
             spectral_photon_flux_density=spectral_photon_flux_density,
             spectral_photon_flux=spectral_photon_flux,
             undulator_info=str(self),
-            info=f"harmonic = {str(harmonic)}",
+            info=f"harmonic = {str(harmonic)}, "+abs_info,
             ebeam=self.ebeam,
         )
         data = _photon_flux_density_helper(data)
