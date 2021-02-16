@@ -501,8 +501,11 @@ class Undulator:
         return r.spectral_photon_flux_max
 
     def as_xrt(
-        self, gap="min", harmonic=1, max_angle_rad=10e-3/30, nrays=1000, **kwargs
+        self, gap="min", harmonic=1, distE="BW",max_angle_rad=10e-3/30, nrays=1000, **kwargs
     ):
+        """ use distE = 'eV' for 
+            - XRT ray tracing (for example important when using fluxkind='power')
+            use distE = 'BW' for spectral calculations of sr """
         import xrt.backends.raycing.sources as rs
 
         if isinstance(gap, str) and gap == "min":
@@ -532,7 +535,7 @@ class Undulator:
             zPrimeMax=max_angle_rad[1] * 1e3,  # wants in mrad
             nrays=nrays,
             targetE=[self.photon_energy(gap=gap, harmonic=harmonic) * 1e3, harmonic],
-            distE="BW",
+            distE=distE,
         )
         kw.update(**kwargs)
         print(kw)
@@ -947,7 +950,7 @@ cpmu21 = Undulator(
 )
 
 
-def get_cpmu(period=18, length=2):
+def get_cpmu(period=18, length=2,min_gap=6):
     name = f"cpmu{period}"
     return Undulator(
         length=length,
@@ -955,7 +958,7 @@ def get_cpmu(period=18, length=2):
         period=period,
         elattice="EBS",
         name=name,
-        min_gap=6,
+        min_gap=min_gap,
     )
 
 
