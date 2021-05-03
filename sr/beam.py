@@ -6,6 +6,20 @@ from datastorage import DataStorage as ds
 from scipy.special import erf
 from .utils.conversion import energy_to_wavelength, wavelength_to_energy
 
+def ebs_minibeta(beta_h=6.8,beta_v=2.7):
+    eps_h = 130e-12
+    eps_v = 10e-12
+    return ds(
+        sh = np.sqrt(eps_h*beta_h),
+        divh = np.sqrt(eps_h/beta_h),
+        sv = np.sqrt(eps_v*beta_v),
+        divv = np.sqrt(eps_v/beta_v),
+        ebeam_energy=6,
+        sr_cur=0.2,
+        rms_energy_spread=0.00094,
+    )
+
+
 _e_lattices = ds(
     esrf_highb=ds(
         sh=387.80e-6,
@@ -16,15 +30,7 @@ _e_lattices = ds(
         sr_cur=0.2,
         rms_energy_spread=0.001,
     ),
-    ebs=ds(
-        sh=31.94e-6,
-        divh=4.7e-6,
-        sv=5.29e-6,
-        divv=1.89e-6,
-        ebeam_energy=6,
-        sr_cur=0.2,
-        rms_energy_spread=0.00094,
-    ),
+    ebs=ebs_minibeta(beta_h=6.8,beta_v=2.8),
     super_source=ds(
         sh=3e-6,
         divh=1e-6,
@@ -54,6 +60,8 @@ _e_lattices = ds(
     ),
 
 )
+
+
 
 # utility functions
 def _sqrt_squares(*K):

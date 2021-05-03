@@ -472,9 +472,12 @@ class Transfocator:
         )
         return ret
 
+    def __add__(self,other):
+        return Transfocator(self.lens_set+other.lens_set)
+
     def __repr__(self):
         lenses = self.lens_set
-        s = f"Transfocator with {len(lenses)} axis"
+        s = f"Transfocator with {len(lenses)} axis and {self.n_lenses_tot} lenses"
         for l in lenses:
             s += f"\n - {str(l)}"
         return s
