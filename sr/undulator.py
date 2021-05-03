@@ -202,7 +202,7 @@ class Undulator:
         energy = self.photon_energy(gap=gap, harmonic=harmonic)
         wavelength = energy_to_wavelength(energy)  # *1e-10
         b = beam.Photon_Beam(
-            wavelength=wavelength, undulator_L=self.length, lattice=self.elattice
+            wavelength=wavelength, undulator_L=self.length, harmonic=harmonic, lattice=self.elattice
         )
         cl = b.rms_cl_at_dist(dist)
         bs = b.rms_size_at_dist(dist)
@@ -871,8 +871,15 @@ class Undulator:
         return bins_cen, best
 
     def find_harmonic_and_gap(
-        self, photon_energy, photon_energy_relative_acceptance=0.01, **kwargs
+        self, photon_energy, photon_energy_relative_acceptance=0.01, 
+        sort_harmonics=False,**kwargs
     ):
+        """ if sort_harmonics is False it returns a tuple with index the (odd)
+            harmonic (i.e. index 0 is harm 1, index 1 is harm 3, ...)
+            if sort_harmonics is False the different harmonics are sorted by
+            increasing flux
+        """
+
         # find right harmonic
         found = dict()
         for harmonic in range(1, 21, 2):
@@ -904,6 +911,8 @@ class Undulator:
                 best.append(dict(harmonic=harmonic, gap=gap, flux=flux))
             except:
                 pass
+        if sort_harmonics:
+            best = sorted(best,reverse=True,key=lambda x: x.get("flux"))
         return best
 
     def __str__(self):
