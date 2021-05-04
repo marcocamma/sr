@@ -14,7 +14,7 @@ from xrt.backends.raycing import materials as rm
 
 
 
-_densities = dict(
+DENSITIES = dict(
      H =  0.071,
     He =  0.122,
     Li =  0.534,
@@ -108,15 +108,21 @@ _densities = dict(
     Cm = 13.510,
     Bk = 14.000,
     H2O = 1,
+  steel = 7.85,
+)
+
+CHEMICAL_FORMULAS = dict(
+  steel = "Fe85Cr11C4",
 )
 
 def get_density(element):
-    if element not in _densities:
+    if element not in DENSITIES:
         raise ValueError("No default density for",element)
-    return _densities[element]
+    return DENSITIES[element]
 
 def _interpret_material_string(material):
     """ convert strings like H2O into tuples that xrt likes ["H","O"],[2,1] """
+    if material in CHEMICAL_FORMULAS: material = CHEMICAL_FORMULAS[material]
     elemes = []
     numbers = []
     start = 0
