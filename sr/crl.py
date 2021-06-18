@@ -423,6 +423,13 @@ class Transfocator:
         self.all_confs = np.asarray(all_confs)
         n_tot = sum([s.n for s in self.lens_set])
         self.n_lenses_tot = n_tot
+        self._focal_lengths_cache = dict()
+
+    def _focal_lengths(self,energy):
+        if not energy in self._focal_lengths_cache:
+            _temp = [s.focal_length(energy) for s in self.all_sets]
+            self._focal_lengths_cache[energy] = np.asarray(_temp)
+        return self._focal_lengths_cache[energy]
 
     def find_best_set_for_focal_length(
         self, energy=8, focal_length=10, accuracy_needed=0.1, verbose=False,
@@ -432,8 +439,7 @@ class Transfocator:
         find lensset that has a certain focal_length (within accuracy_needed)
         and transmission if beam_fwhm is provided (and sort_by_transmission is
         """
-        fl = [s.focal_length(energy) for s in self.all_sets]
-        fl = np.asarray(fl)
+        fl = self._focal_lengths(energy)
         delta_fl = np.abs(fl - focal_length)
         if fl[np.isfinite(fl)].max() < focal_length * 5:
             idx_best = 0
