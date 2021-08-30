@@ -24,6 +24,26 @@ def size_at_dist(beam, f, dist):
     b = b.propagate(dist)
     return float(b.rms_size * 2.35)
 
+def find_fl_to_focus(beam, dist, verbose=True):
+    def tominimize(f):
+        if f<0.001: f=0.001
+        return abs(1/beam.lens(f).propagate(dist).radius)
+
+    x0 = find_fl_to_get_size(beam, dist, 0, verbose=verbose)
+
+    bracket = x0-1,x0
+
+    res = scipy.optimize.minimize_scalar(
+        tominimize, bracket=bracket, method="golden", tol=1e-3,options=dict(maxiter=30)
+        )
+
+    if verbose:
+        print(
+            f"find f to focus@dist: found FL of {res.x:.3f}m after {res.nit} iterations"
+        )
+    return res.x
+
+
 
 def find_fl_to_get_size(beam, dist, size, verbose=True, retry=False):
     def tominimize(f):
@@ -35,7 +55,7 @@ def find_fl_to_get_size(beam, dist, size, verbose=True, retry=False):
         bracket = (35, 45)
 
     res = scipy.optimize.minimize_scalar(
-        tominimize, bracket=bracket, method="golden", tol=1e-3
+        tominimize, bracket=bracket, method="golden", tol=1e-3, options=dict(maxiter=30)
     )
 
     size_with_best_fl = size_at_dist(beam, res.x, dist)
@@ -181,13 +201,14 @@ def propagate(
             aaao = aabo
             focal_lengths.append(None)
             desired_focal_lengths.append(None)
+            lenses.append(None)
             _log.append(f"No focusing optics for this element")
         else:
             if fixed_f is not None and _pos in fixed_f:
                 c = fixed_f[_pos]
                 _log.append("Adding constrain from other direction:"+str(c))
                 if isinstance(c,(float,int)):
-                    c = abcd.optics.Lens(c)
+                    c = lens(c)
                 aabo = aabo.apply(c)
             if _element[:4].lower() == "coll":
                 fl = aabo.radius
@@ -232,9 +253,9 @@ def propagate(
                 )
                 fl_obj = ret_transf.best_lens_set
                 _log.append(fl_obj)
-                lenses.append(str(fl_obj))
+                lenses.append(fl_obj)
             else:
-                lenses.append(None)
+                lenses.append(fl)
                 fl_obj = lens(fl)
             focal_lengths.append(fl)
             if fl == np.inf:
@@ -257,10 +278,13 @@ def propagate(
         beams_before_aperture_before_optics=beams_before_aperture_before_optics,
         beams_after_aperture_before_optics=beams_after_aperture_before_optics,
         beams_after_aperture_after_optics=beams_after_aperture_after_optics,
+        lenses=lenses
     )
 
     size = np.zeros_like(z)
     cl = np.zeros_like(z)
+    gdc = np.zeros_like(z)
+    radius = np.zeros_like(z)
 
     for i, zi in enumerate(z):
         print(f"calculating {i}/{len(z)}", end="\r")
@@ -276,12 +300,16 @@ def propagate(
         b = beam.propagate(dpos)
         size[i] = b.rms_size * 2.35 * 1e6
         cl[i] = b.rms_cl * 2.35 * 1e6
+        gdc[i] = b.global_degree_of_coherence
+        radius[i] = b.radius
     divergence = np.gradient(size, z)
     ret = ds(
         z=z,
         divergence=divergence,
         fwhm_size=size,
         fwhm_cl=cl,
+        global_degree_of_coherence=gdc,
+        radius=radius,
         info=info,
     )
     if fname is not None:
