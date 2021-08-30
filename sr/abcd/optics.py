@@ -9,6 +9,7 @@ import sympy
 sympy.init_printing(use_unicode=True, use_latex=True, pretty_printing=True)
 from sympy import Symbol
 
+
 RMS_TO_FWHM = 2*sympy.sqrt(2*sympy.ln(2))
 
 def gaussian_transmission_1D(sig,slit_opening):
@@ -60,6 +61,8 @@ def real_sympify(x):
 
 
 def lens(focal_length="f", force_positive=False):
+    if isinstance(force_positive,(float,int)):
+        return np.asarray( [[1,0],[-1/focal_length,1]])
     if isinstance(focal_length, str):
         if force_positive:
             focal_length = sympy.Symbol(focal_length, real=True, positive=True)
@@ -69,6 +72,8 @@ def lens(focal_length="f", force_positive=False):
 
 
 def free_space(dist="d", force_positive=False):
+    if isinstance(dist,(float,int)):
+        return np.asarray( [[1,dist],[0,1]])
     if isinstance(dist, str):
         if force_positive:
             dist = sympy.Symbol(dist, real=True, positive=True)
@@ -96,15 +101,17 @@ class GaussianAperture:
 
 class HardAperture:
     """
-    As shown in Singer&Vartanyans JSR 2014, a pinhole can be approaximated
-    by a gaussian_aperture with effective_aperture Ω = D/4.55
+    #As shown in Singer&Vartanyans JSR 2014, a pinhole can be approaximated
+    #by a gaussian_aperture with effective_aperture Ω = D/4.55
+    Will use rms of gaussian = aperture/2.35 (as shown by M. del Rio this
+    matches the coherent fraction)
     """
     def __init__(self, aperture="D"):
         if isinstance(aperture, str):
             aperture = sympy.Symbol(
                 aperture, real=True, positive=True
             )
-        self.effective_aperture = aperture/4.55
+        self.effective_aperture = aperture/2.35
 
 
 
@@ -113,10 +120,6 @@ def gaussian_aperture(effective_aperture="Ω"):
 
 
 def hard_aperture(aperture="D"):
-    """
-    As shown in Singer&Vartanyans JSR 2014, a pinhole can be approaximated
-    by a gaussian_aperture with effective_aperture Ω = D/4.55
-    """
     return HardAperture(aperture=aperture)
 
 
@@ -210,6 +213,13 @@ class GSM:
         m = lens(focal_length)
         return self.apply(m,evalf_result=evalf_result)
 
+    def focus(self,dist,evalf_result="auto"):
+        # keep import here to avoid circulat import
+        # no better way ?
+        from .propagate import find_fl_to_focus
+        f = find_fl_to_focus(self,dist)
+        return self.lens(f,evalf_result=evalf_result)
+
     def apply_matrix(self, M,evalf_result="auto"):
         A, B, C, D = M
         R = self.radius
@@ -245,7 +255,7 @@ class GSM:
         a = aperture.effective_aperture ** 2
         rms_size = sympy.sqrt(a * s / (a + s))
         radius = self.radius
-        intensity=self.intensity*gaussian_transmission_1D(self.rms_size,aperture.effective_aperture*4.55)
+        intensity=self.intensity*gaussian_transmission_1D(self.rms_size,aperture.effective_aperture*2.35)
         if evalf_result == "auto": evalf_result=self.auto_apply_evalf
         return GSM(
             wavelen=self.wavelen,
@@ -379,6 +389,14 @@ class GSM_Numeric:
         m = lens(focal_length)
         return self.apply(m)
 
+    def focus(self,dist):
+        # keep import here to avoid circulat import
+        # no better way ?
+        from .propagate import find_fl_to_focus
+        f = find_fl_to_focus(self,dist)
+        return self.lens(f)
+
+
 
     def apply_matrix(self, M):
         if not isinstance(M,np.ndarray):
@@ -426,7 +444,7 @@ class GSM_Numeric:
         a = float(aperture.effective_aperture) ** 2
         rms_size = np.sqrt(a * s / (a + s))
         radius = self.radius
-        intensity=self.intensity*float(gaussian_transmission_1D(self.rms_size,aperture.effective_aperture*4.55))
+        intensity=self.intensity*float(gaussian_transmission_1D(self.rms_size,aperture.effective_aperture*2.35))
         return GSM_Numeric(
             wavelen=self.wavelen,
             rms_size=rms_size,
