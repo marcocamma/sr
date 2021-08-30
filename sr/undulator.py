@@ -180,11 +180,11 @@ class Undulator:
         self.period = period
         self.sr_current = ebeam.sr_cur
         self.ebeam_energy = ebeam.ebeam_energy
-        if isinstance(gap_to_b,str):
-            names = ["roomT","cryoT"]
+        if isinstance(gap_to_b, str):
+            names = ["roomT", "cryoT"]
             if not gap_to_b in names:
-                raise ValueError("gap_to_b string has to be one of ",str(names))
-            gap_to_b = globals()["b_field_%s"%gap_to_b]
+                raise ValueError("gap_to_b string has to be one of ", str(names))
+            gap_to_b = globals()["b_field_%s" % gap_to_b]
         self._gap_to_b = gap_to_b
         if k is not None:
             b = b_field_from_k(k, period)
@@ -196,13 +196,23 @@ class Undulator:
         self.max_gap = max_gap
 
     def calc_sizes_and_coherence_lengths(
-        self, dist, gap="min", harmonic=1, return_fwhm=False, **kwargs
+        self, dist, gap="min", energy=None, harmonic=1, return_fwhm=False, **kwargs
     ):
         """ by default returns RMS size and divergences """
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
         energy = self.photon_energy(gap=gap, harmonic=harmonic)
         wavelength = energy_to_wavelength(energy)  # *1e-10
         b = beam.Photon_Beam(
-            wavelength=wavelength, undulator_L=self.length, harmonic=harmonic, lattice=self.elattice
+            wavelength=wavelength,
+            undulator_L=self.length,
+            harmonic=harmonic,
+            lattice=self.elattice,
         )
         cl = b.rms_cl_at_dist(dist)
         bs = b.rms_size_at_dist(dist)
@@ -212,7 +222,15 @@ class Undulator:
                 cl[k] = v * 2.35
         return cl
 
-    def as_srw(self, gap="min", harmonic=1, **kwargs):
+    def as_srw(self, gap="min", energy=None, harmonic=1, **kwargs):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         import srwlib
@@ -233,17 +251,36 @@ class Undulator:
         )  # Container of all magnetic field elements
         return ds(ebeam=ebeam, und=und, field=magFldCnt)
 
-    def as_gsm(self, gap="min", harmonic=1, distance=None,**kwargs):
-        b = self.photon_beam_characteristics(gap=gap,harmonic=harmonic,**kwargs)
-        gsmh = GSM_Numeric(rms_size=b.sh, rms_cl=b.gsm_sclh, wavelen=b.wavelength*1e-10)
-        gsmv = GSM_Numeric(rms_size=b.sv, rms_cl=b.gsm_sclv, wavelen=b.wavelength*1e-10)
+    def as_gsm(self, gap="min", energy=None, harmonic=1, distance=None, **kwargs):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+        b = self.photon_beam_characteristics(gap=gap, harmonic=harmonic, **kwargs)
+        gsmh = GSM_Numeric(
+            rms_size=b.sh, rms_cl=b.gsm_sclh, wavelen=b.wavelength * 1e-10
+        )
+        gsmv = GSM_Numeric(
+            rms_size=b.sv, rms_cl=b.gsm_sclv, wavelen=b.wavelength * 1e-10
+        )
         if distance is not None:
             gsmh = gsmh.propagate(distance)
             gsmv = gsmv.propagate(distance)
-        return ds(h=gsmh,v=gsmv)
+        return ds(h=gsmh, v=gsmv)
 
     def srw_power_density(
-        self, gap="min", dist=30, h=[-3, 3], nh=151, v=[-2, 2], nv=101, **kwargs
+        self,
+        gap="min",
+        dist=30,
+        energy=None,
+        h=[-3, 3],
+        nh=151,
+        v=[-2, 2],
+        nv=101,
+        **kwargs,
     ):
         """
         Calculate power density (W/mm^2)
@@ -260,6 +297,12 @@ class Undulator:
         nv: int
             number of point in vertical direction
         """
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=True
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         import srwlib
@@ -322,6 +365,7 @@ class Undulator:
     def srw_photon_flux_density(
         self,
         gap="min",
+        energy=None,
         dist=30,
         h=[-0.6, 0.6],
         nh=13,
@@ -360,6 +404,13 @@ class Undulator:
         """
         import srwlib
         import srwlpy
+
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=True
+            )[0]
+            gap = pars["gap"]
+            # harmonic will be determined below
 
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
@@ -438,12 +489,11 @@ class Undulator:
 
         if abs_filter is not None:
             t = abs_filter.calc_transmission(e)
-            spectral_photon_flux_density *= t[:,np.newaxis,np.newaxis]
+            spectral_photon_flux_density *= t[:, np.newaxis, np.newaxis]
             spectral_photon_flux *= t
             abs_info = "absorption filter : " + str(abs_filter)
         else:
             abs_info = "no absorption filter"
-
 
         data = ds(
             energy=e,
@@ -452,7 +502,7 @@ class Undulator:
             spectral_photon_flux_density=spectral_photon_flux_density,
             spectral_photon_flux=spectral_photon_flux,
             undulator_info=str(self),
-            info=f"harmonic = {str(harmonic)}, "+abs_info,
+            info=f"harmonic = {str(harmonic)}, " + abs_info,
             ebeam=self.ebeam,
         )
         data = _photon_flux_density_helper(data)
@@ -463,6 +513,7 @@ class Undulator:
     def srw_photon_flux(
         self,
         gap="min",
+        energy=None,
         dist=30,
         h=[-0.6, 0.6],
         v=[-0.5, 0.5],
@@ -478,12 +529,26 @@ class Undulator:
         See srw_spectral_irradiance docstring
         """
         ret = self.srw_photon_flux_density(
-            gap=gap, dist=dist, h=h, nh=1, v=v, nv=1, e=e, ne=ne, harmonic=harmonic
+            gap=gap,
+            energy=energy,
+            dist=dist,
+            h=h,
+            nh=1,
+            v=v,
+            nv=1,
+            e=e,
+            ne=ne,
+            harmonic=harmonic,
+            **kwargs,
         )
         return ret
 
     def srw_total_flux(
-        self, gap="min", dist=30, h=[-0.6, 0.6], v=[-0.5, 0.5], harmonic=1, **kwargs,
+        self,
+        gap="min",
+        energy=None,
+        harmonic=1,
+        **kwargs,
     ):
         """ Calculate photon flux at resonance; note: SWR find maximum
             intensity a bit below resonance (even with very small slits).
@@ -491,6 +556,7 @@ class Undulator:
         """
         r = self.srw_photon_flux(
             gap=gap,
+            energy=energy,
             dist=30,
             h=10,
             v=10,
@@ -501,12 +567,27 @@ class Undulator:
         return r.spectral_photon_flux_max
 
     def as_xrt(
-        self, gap="min", harmonic=1, distE="BW",max_angle_rad=10e-3/30, nrays=1000, **kwargs
+        self,
+        gap="min",
+        energy=None,
+        harmonic=1,
+        distE="BW",
+        max_angle_rad=10e-3 / 30,
+        nrays=1000,
+        **kwargs,
     ):
         """ use distE = 'eV' for 
             - XRT ray tracing (for example important when using fluxkind='power')
             use distE = 'BW' for spectral calculations of sr """
         import xrt.backends.raycing.sources as rs
+
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
 
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
@@ -545,6 +626,7 @@ class Undulator:
     def xrt_photon_flux_density(
         self,
         gap="min",
+        energy=None,
         dist=30,
         h=[-0.6, 0.6],
         nh=13,
@@ -581,6 +663,13 @@ class Undulator:
             harmonic to consider, if auto it is autodetected based on energy range
             if int, only that harmonic is used
         """
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
 
         if isinstance(e, (int, float)) and e != 0:
             e = [e, e]
@@ -640,12 +729,10 @@ class Undulator:
 
         if abs_filter is not None:
             t = abs_filter.calc_transmission(e)
-            spectral_photon_flux_density *= t[:,np.newaxis,np.newaxis]
+            spectral_photon_flux_density *= t[:, np.newaxis, np.newaxis]
             abs_info = "absorption filter : " + str(abs_filter)
         else:
             abs_info = "no absorption filter"
-
-
 
         # integrate2d works only if len(axis) > 1
         if nh == 1 or nv == 1:
@@ -660,7 +747,7 @@ class Undulator:
             spectral_photon_flux_density=spectral_photon_flux_density,
             spectral_photon_flux=spectral_photon_flux,
             undulator_info=str(self),
-            info=f"harmonic = {str(harmonic)}, "+abs_info,
+            info=f"harmonic = {str(harmonic)}, " + abs_info,
             ebeam=self.ebeam,
         )
         data = _photon_flux_density_helper(data)
@@ -674,13 +761,22 @@ class Undulator:
             gap = self.min_gap
         return self._gap_to_b(gap=gap, period=self.period)
 
-    def k(self, gap="min", **kwargs):
+    def k(self, gap="min", energy=None, **kwargs):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         return k_value(B=self.field(gap), period=self.period)
 
     def photon_energy(self, gap="min", harmonic=1, theta=0, **k_value):
         """
         Returns X-ray photon energy (in keV) 
         """
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         k = self.k(gap)
@@ -697,7 +793,15 @@ class Undulator:
             gap = self.min_gap
         return self.photon_energy(gap=gap, harmonic=1)
 
-    def flux(self, gap="min", harmonic=1, **kwargs):
+    def flux(self, gap="min", energy=None, harmonic=1, **kwargs):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         return photon_flux(
@@ -707,7 +811,17 @@ class Undulator:
             k=self.k(gap),
         )
 
-    def photon_beam_characteristics(self, gap="min", harmonic=1, theta=0, **kwargs):
+    def photon_beam_characteristics(
+        self, gap="min", energy=None, harmonic=1, theta=0, **kwargs
+    ):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         f = self.photon_energy(gap, harmonic=harmonic)
@@ -716,8 +830,16 @@ class Undulator:
             wavelength, undulator_L=self.length, lattice=self.ebeam, harmonic=harmonic
         )
 
-    def photon_beam_emittance(self, gap="min", harmonic=1, **kwargs):
+    def photon_beam_emittance(self, gap="min", energy=None, harmonic=1, **kwargs):
         """ in mrad^2 mm^2 """
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         beam = self.photon_beam_characteristics(gap=gap, harmonic=harmonic)
@@ -725,7 +847,14 @@ class Undulator:
         emitt = emitt * 1e12  # from m2 rad2 to mm2 mrad2
         return emitt
 
-    def brilliance(self, gap="min", harmonic=1, use_srw=False, **kwargs):
+    def brilliance(self, gap="min", energy=None, harmonic=1, use_srw=False, **kwargs):
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         if use_srw:
@@ -735,18 +864,33 @@ class Undulator:
         e = self.photon_beam_emittance(gap=gap, harmonic=harmonic)
         return f / e / (4 * np.pi ** 2)
 
-    def coherent_flux(self, gap="min", harmonic=1, use_srw=False, bw=1.4e-4,**kwargs):
-        b = self.brilliance(gap=gap,harmonic=harmonic,use_srw=use_srw)
+    def coherent_flux(
+        self, gap="min", energy=None, harmonic=1, use_srw=False, bw=1.4e-4, **kwargs
+    ):
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
 
-        e = self.photon_energy(gap=gap,harmonic=harmonic)
-        lam = 12.398/e
-        coherent_flux = 1e-8*b*(lam/2)**2
-        bw_factor = bw*1e3 # brilliance is for 0.1% BW
-        coherent_flux = coherent_flux*bw_factor
+        b = self.brilliance(gap=gap, harmonic=harmonic, use_srw=use_srw)
+
+        e = self.photon_energy(gap=gap, harmonic=harmonic)
+        lam = 12.398 / e
+        coherent_flux = 1e-8 * b * (lam / 2) ** 2
+        bw_factor = bw * 1e3  # brilliance is for 0.1% BW
+        coherent_flux = coherent_flux * bw_factor
         return coherent_flux
 
+    def degeneracy_number(self, gap="min", energy=None, harmonic=1, **kwargs):
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
 
-    def degeneracy_number(self, gap="min", harmonic=1, **kwargs):
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         b = self.brilliance(gap=gap, harmonic=harmonic)
@@ -755,8 +899,15 @@ class Undulator:
         D = 8.3e-25 * b * l ** 3  # from J. Als Nielnsen book, eq. 2.28
         return D
 
-    def total_power(self, gap="min", **kwargs):
+    def total_power(self, gap="min", energy=None, **kwargs):
         """ kwargs is used to throw at it other parameters from gap scan """
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
         B0 = self.field(gap=gap)
@@ -767,8 +918,15 @@ class Undulator:
             sr_current=self.sr_current,
         )
 
-    def power_density(self, gap="min", **kwargs):
+    def power_density(self, gap="min", energy=None, **kwargs):
         """ return power density (W/mrad**2); appraoximated for low K is approaximated !! """
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+
         B0 = self.field(gap=gap)
         K = self.k(gap)
         return power_density(
@@ -871,8 +1029,12 @@ class Undulator:
         return bins_cen, best
 
     def find_harmonic_and_gap(
-        self, photon_energy, photon_energy_relative_acceptance=0.01, 
-        sort_harmonics=False,**kwargs
+        self,
+        photon_energy,
+        photon_energy_relative_acceptance=0.01,
+        sort_harmonics=False,
+        use_srw=False,
+        **kwargs,
     ):
         """ if sort_harmonics is False it returns a tuple with index the (odd)
             harmonic (i.e. index 0 is harm 1, index 1 is harm 3, ...)
@@ -908,11 +1070,16 @@ class Undulator:
                 )
                 gap = gap.root
                 flux = self.flux(gap=gap, harmonic=harmonic)
-                best.append(dict(harmonic=harmonic, gap=gap, flux=flux))
+                brilliance = self.brilliance(
+                    gap=gap, harmonic=harmonic, use_srw=use_srw
+                )
+                best.append(
+                    dict(harmonic=harmonic, gap=gap, flux=flux, brilliance=brilliance)
+                )
             except:
                 pass
         if sort_harmonics:
-            best = sorted(best,reverse=True,key=lambda x: x.get("flux"))
+            best = sorted(best, reverse=True, key=lambda x: x.get("brilliance"))
         return best
 
     def __str__(self):
@@ -959,13 +1126,19 @@ cpmu21 = Undulator(
 )
 
 
-def get_cpmu(period=18, length=2,min_gap=6):
+def get_cpmu(period=18, length=2, min_gap=6, minibeta=False, beta_v=1, beta_h=1):
     name = f"cpmu{period}"
+    if minibeta:
+        ebeam = beam.ebs_minibeta(beta_v=beta_v, beta_h=beta_h)
+    else:
+        ebeam = beam.e_beam("EBS")
+    if min_gap == "auto":
+        min_gap = max(3.5, 2.62 * np.sqrt(beta_v + length ** 2 / 4 / beta_v))
     return Undulator(
         length=length,
         gap_to_b=b_field_cryoT,
         period=period,
-        elattice="EBS",
+        elattice=ebeam,
         name=name,
         min_gap=min_gap,
     )
@@ -983,17 +1156,9 @@ u17 = Undulator(
 
 
 id10_u27 = Undulator(
-        length=1.6,
-        gap_to_b="roomT",
-        period=27,
-        min_gap=11,
-        name="u27_in_air"
-        )
+    length=1.6, gap_to_b="roomT", period=27, min_gap=11, name="u27_in_air"
+)
 
 id10_u34 = Undulator(
-        length=1.6,
-        gap_to_b="roomT",
-        period=34,
-        min_gap=11,
-        name="u34_in_air"
-        )
+    length=1.6, gap_to_b="roomT", period=34, min_gap=11, name="u34_in_air"
+)
