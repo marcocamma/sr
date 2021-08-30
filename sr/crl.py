@@ -117,6 +117,11 @@ class LensBlock:
     def __repr__(self):
         return self.__str__()
 
+    def __short_repr__(self):
+        return "%d%s%.0f μm"%(self.n,TIMES,self.radius*1e6)
+
+
+
 
 class LensSet:
     def __init__(self, lens_set, material="Be",pinhole=None):
@@ -396,6 +401,15 @@ class LensSet:
         else:
             return "\n".join([lb.__str__() for lb in self.lens_set])
 
+    def __short_repr__(self):
+        if len(self.lens_set) == 0:
+            return "No lenses"
+        else:
+            t = ["%d%s%.0f μm"%(l.n,TIMES,l.radius*1e6) for l in self.lens_set]
+            return "\n".join(t)
+
+
+
 
 def dec2TrueFalse(n, npos=None):
     c = bin(n)[2:]  # remove 'header' 0b
@@ -463,7 +477,7 @@ class Transfocator:
         transmission = [g.transmission_central_ray(energy) for g in good_lensets]
         if beam_fwhm is not None:
             transmission_gauss_beam = [g.transmission_gaussian_beam(energy,gauss_beam_fwhm=beam_fwhm) for g in good_lensets]
-            idx_best = np.argmax(transmission_gauss)
+            idx_best = np.argmax(transmission_gauss_beam)
         else:
             idx_best = np.argmin(delta_fl[idx_good])
             transmission_gauss_beam = None
