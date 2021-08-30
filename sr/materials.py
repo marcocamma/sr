@@ -229,7 +229,10 @@ class Wafer:
         return f"filter {self.material:3s}, thickness {self.thickness*1e6} um"
 
     def __str__(self):
-        return f"{self.material}({self.thickness*1e6}um)"
+        if self.thickness>=1e-3:
+            return f"{self.material}({self.thickness*1e3:.2f}mm)"
+        else:
+            return f"{self.material}({self.thickness*1e6:.1f}μm)"
 
 
 def examples():
