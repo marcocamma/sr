@@ -1,4 +1,6 @@
 import numpy as np
+import copy
+from . import undulator
 from datastorage import DataStorage as ds
 import xrt.backends.raycing.materials as rm
 
@@ -23,7 +25,13 @@ def coddington_sagittal(p, q, theta):
 
 
 def get_material(atom="Pt", rho=None):
-    if rho is None:
+    """ 
+    use rho='bulk' for bulk density
+    use rho=None for default density of coating (90% of bulk for Pt)
+    """
+    if isinstance(rho,str) and rho == "bulk":
+        rho = _bulk_densities[atom]
+    elif rho is None:
         rho = _bulk_densities[atom] * _density_factor[atom]
     return rm.Material(atom, rho=rho)
 
@@ -35,6 +43,10 @@ def mirror_reflectivity(E, material="Si", angle=2e-3, rho=None):
 
 class Mirror:
     def __init__(self, material="Si", rho=None):
+        """ 
+        use rho='bulk' for bulk density
+        use rho=None for default density of coating (90% of bulk for Pt)
+        """
         self.material_name = material
         self.material = get_material(material,rho=rho)
         self.rho = rho
@@ -59,6 +71,14 @@ class Mirror:
         """ reflectivity for double bounce """
         return self.reflectivity(E, angle) ** 2
 
+    def photon_flux_after_mirror(self,photon_flux_before,angle,nbounces=2):
+        """ does not take into account finite size of mirrors """
+        photon_flux_before = copy.deepcopy(photon_flux_before)
+        r = self.reflectivity(photon_flux_before.energy,angle)**nbounces
+        photon_flux_before.spectral_photon_flux_density *= r[:,np.newaxis,np.newaxis]
+        photon_flux_before.spectral_photon_flux *= r
+        after = undulator._photon_flux_density_helper(photon_flux_before)
+        return after
 
 
 id18_mirrors = [
