@@ -108,11 +108,14 @@ DENSITIES = dict(
     Cm = 13.510,
     Bk = 14.000,
     H2O = 1,
+  water = 1,
   steel = 7.85,
 )
 
 CHEMICAL_FORMULAS = dict(
   steel = "Fe85Cr11C4",
+  h2o   = "H2O",
+  water = "H2O",
 )
 
 def get_density(element):
