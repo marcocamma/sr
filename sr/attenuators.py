@@ -69,6 +69,9 @@ class EmptySlot:
     def __str__(self):
         return f"Em"
 
+def _complete_with_zeros(mylist,naxis=6):
+    mylist = tuple(mylist) + (0,)*(naxis-len(mylist))
+    return mylist
 
 class Filters:
     def __init__(self, att_list):
@@ -82,6 +85,21 @@ class Filters:
             itertools.product(*[range(n) for n in self._nfilters_per_axis])
         )
 
+        # calculate "progressive" combinations (only use one axis if one of previous one is used)
+        temp = [ (i,) for i in range(1,self._nfilters_per_axis[0])]
+        for i in range(1,self.naxis):
+            toadd = []
+            for previous in temp:
+                for newf in range(1,self._nfilters_per_axis[i]):
+                    toadd.append( (newf,)+previous )
+            temp.extend(toadd)
+        temp = [_complete_with_zeros(x,self.naxis) for x in temp]
+        temp.insert(0, [0,]*self.naxis)
+        self._att_progressive = temp
+
+
+
+
     def calc_transmission(self, E, filter_selection):
         """ filter_selection is list (0,2,3), each number is filter number in axis0,axis1,axis2 """
         T = 1
@@ -91,6 +109,8 @@ class Filters:
 
     def _calc_all_transmissions(self, E):
         return np.asarray([self.calc_transmission(E, filters) for filters in self._att])
+    def _calc_all_transmissions_progressive(self, E):
+        return np.asarray([self.calc_transmission(E, filters) for filters in self._att_progressive])
 
     def _show_axis(self, axis=0):
         filters = self._att_list[axis]
@@ -108,12 +128,17 @@ class Filters:
     def __repr__(self):
         return "\n".join([self._show_axis(axis) for axis in range(self.naxis)])
 
-    def calc_best_transmission(self, E, requested_tramission, verbose=False):
+    def calc_best_transmission(self, E, requested_tramission, verbose=False,use_progressive=False):
         """ E must be a float, can't be a vector """
         E = float(E)
-        t = self._calc_all_transmissions(E)
-        best = np.argmin(np.abs(t - requested_tramission))
-        best_combination = self._att[best]
+        if use_progressive:
+            t = self._calc_all_transmissions(E)
+            best = np.argmin(np.abs(t - requested_tramission))
+            best_combination = self._att[best]
+        else:
+            t = self._calc_all_transmissions_progressive(E)
+            best = np.argmin(np.abs(t - requested_tramission))
+            best_combination = self._att_progressive[best]
         t_1E = t[best]
         t_2E = self.calc_transmission(2 * E, best_combination)
         t_3E = self.calc_transmission(3 * E, best_combination)
@@ -183,6 +208,7 @@ def test_filters():
 
 
 axis = [[EmptySlot(), Filter("Si", 10e-6 * (2 ** i))] for i in range(0, 10)]
+axis = [[EmptySlot(), Filter("Si", 10e-6 * (2 ** i))] for i in range(0, 3)]
 power_filter = Filters(axis)
 
 
