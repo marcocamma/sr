@@ -294,3 +294,13 @@ def diffraction_limited_spot_gaussian(wavelength=1e-10,focal_length=10,fwhm=100e
     FWHM_focus = λ*f/FWHM * 1/(π*0.85*0.85) = 0.44*λ*f/FWHM
     """
     return 0.44*wavelength*focal_length/fwhm
+
+
+def total_fraction_scattered_intensity(R=1e-6,rho=0.4,wavelength=1e-10):
+    """
+    calculated for sphere with constant e-density
+    rho = electron density per Å³ (protein 0.43, water 0.33)
+    R = radius in m
+    """
+    rho = rho*1e30 # convert to m3
+    return 4.9*1e-25*wavelength**2*rho**2*R**4
