@@ -6,9 +6,11 @@ In this module:
 import numpy as np
 import itertools
 import collections
+import copy
 
 from functools import lru_cache
 from .utils.conversion import energy_to_wavelength
+from . import undulator
 
 from xrt.backends.raycing import materials as rm
 
@@ -21,6 +23,7 @@ DENSITIES = dict(
     Be =  1.848,
      B =  2.340,
      C =  2.100,
+diamond=  3.51,
      N =  0.808,
      O =  1.140,
      F =  1.500,
@@ -157,6 +160,7 @@ def _interpret_material_string(material):
 
 def get_material(material,density=None):
     if density is None: density = get_density(material)
+    if material == "diamond": material = "C"
     m = rm.Material(*_interpret_material_string(material),rho=density)
     return m
 
@@ -227,6 +231,16 @@ class Wafer:
     def calc_transmission(self, E):
         att_len = self.get_att_len(E)
         return np.exp(-self.thickness / att_len)
+
+    def photon_flux_after_wafer(self,photon_flux_before):
+        """ does not take into account finite size of mirrors """
+        photon_flux_before = copy.deepcopy(photon_flux_before)
+        t = self.calc_transmission(photon_flux_before.energy)
+        photon_flux_before.spectral_photon_flux_density *= t[:,np.newaxis,np.newaxis]
+        photon_flux_before.spectral_photon_flux *= t
+        after = undulator._photon_flux_density_helper(photon_flux_before)
+        return after
+
 
     def __repr__(self):
         return f"filter {self.material:3s}, thickness {self.thickness*1e6} um"
