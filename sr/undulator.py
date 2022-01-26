@@ -1133,7 +1133,7 @@ def get_cpmu(period=18, length=2, min_gap=6, minibeta=False, beta_v=1, beta_h=1)
     else:
         ebeam = beam.e_beam("EBS")
     if min_gap == "auto":
-        min_gap = max(3.5, 2.62 * np.sqrt(beta_v + length ** 2 / 4 / beta_v))
+        min_gap = max(3.5, 2.75 * np.sqrt(beta_v + length ** 2 / 4 / beta_v))
     return Undulator(
         length=length,
         gap_to_b=b_field_cryoT,
