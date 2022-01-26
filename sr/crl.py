@@ -455,7 +455,11 @@ class Transfocator:
         """
         fl = self._focal_lengths(energy)
         delta_fl = np.abs(fl - focal_length)
-        if fl[np.isfinite(fl)].max() < focal_length * 5:
+        if np.isnan(focal_length):
+            idx_best = 0
+            idx_good = np.zeros_like(fl, dtype=bool)
+            idx_good[0] = True
+        elif fl[np.isfinite(fl)].max() < focal_length * 5:
             idx_best = 0
             idx_good = np.ones_like(fl, dtype=bool)
         else:

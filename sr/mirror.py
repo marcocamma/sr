@@ -17,12 +17,23 @@ def coddington_meridional(p, q, theta):
     return R
 
 
+def coddington_meridional_R(f, theta):
+    """ return radius of curvature """
+    R = 2 * f / np.sin(theta)
+    return R
+
+def coddington_meridional_f(R, theta):
+    """ return focal length """
+    f = R/2*np.sin(theta)
+    return f
+
+
+
 def coddington_sagittal(p, q, theta):
     """ return radius of curvature """
     f = p * q / (p + q)
     R = 2 * f * np.sin(theta)
     return R
-
 
 def get_material(atom="Pt", rho=None):
     """ 
