@@ -17,7 +17,9 @@ def ebs_minibeta(beta_h=6.8,beta_v=2.7):
         ebeam_energy=6,
         sr_cur=0.2,
         rms_energy_spread=0.00094,
-        name="minibeta"
+        name="minibeta",
+        betav=beta_v,
+        betah=beta_h,
     )
 
 
