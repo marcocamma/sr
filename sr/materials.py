@@ -2,6 +2,7 @@
 In this module:
     energies are in keV,
     densities in gr/cm3
+    transmissions is calculated using PHOTOELECTRIC effect ONLY
 """
 import numpy as np
 import itertools
@@ -113,18 +114,42 @@ diamond=  3.51,
     H2O = 1,
   water = 1,
   steel = 7.85,
+ kapton = 1.43,
+ mylar = 1.4,
+ ambient_air = 1.19e-3,
 )
 
 CHEMICAL_FORMULAS = dict(
   steel = "Fe85Cr11C4",
   h2o   = "H2O",
   water = "H2O",
+  diamond = "C",
+  kapton = "C22H10N2O5",
+  mylar = "C10H8O4",
+  ambient_air = "N1862O418Ar9",
 )
 
 def get_density(element):
     if element not in DENSITIES:
         raise ValueError("No default density for",element)
     return DENSITIES[element]
+
+def get_number_density(element,density=None):
+    """ returns atoms in cm^3 """
+    
+    if density is None:
+        if element not in DENSITIES:
+            raise ValueError("No default density for",element)
+        else:
+            density = DENSITIES[element]
+    atomic_mass = rm.read_atomic_data(elem)
+    num_density = density/atomic_mass*rm.AVOGADRO
+
+def get_air_density(T=293,P=1e5):
+    density_kg_m3 = P*0.0289652/(8.31446*T)
+    density_g_cm3 = density_kg_m3*1e-3
+    return density_kg_m3
+
 
 def _interpret_material_string(material):
     """ convert strings like H2O into tuples that xrt likes ["H","O"],[2,1] """
