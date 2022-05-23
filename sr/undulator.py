@@ -271,6 +271,44 @@ class Undulator:
             gsmv = gsmv.propagate(distance)
         return ds(h=gsmh, v=gsmv)
 
+    def as_wolfry(self, gap="min", energy=None, harmonic=1, npoints=400, k="auto",**kwargs):
+
+        if isinstance(gap, str) and gap == "min":
+            gap = self.min_gap
+
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=False
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+        else:
+            energy = self.photon_energy(gap=gap, harmonic=harmonic)
+
+        return WolfryUndulator(
+            energy=energy, npoints=npoints, undulator=self, k=k,
+        )
+
+    def as_gsm(self, gap="min", energy=None, harmonic=1, distance=None, **kwargs):
+        use_srw = kwargs.get("use_srw", False)
+        if energy is not None:
+            pars = self.find_harmonic_and_gap(
+                energy, sort_harmonics=True, use_srw=use_srw
+            )[0]
+            gap = pars["gap"]
+            harmonic = pars["harmonic"]
+        b = self.photon_beam_characteristics(gap=gap, harmonic=harmonic, **kwargs)
+        gsmh = GSM_Numeric(
+            rms_size=b.sh, rms_cl=b.gsm_sclh, wavelen=b.wavelength * 1e-10
+        )
+        gsmv = GSM_Numeric(
+            rms_size=b.sv, rms_cl=b.gsm_sclv, wavelen=b.wavelength * 1e-10
+        )
+        if distance is not None:
+            gsmh = gsmh.propagate(distance)
+            gsmv = gsmv.propagate(distance)
+        return ds(h=gsmh, v=gsmv)
+
     def srw_power_density(
         self,
         gap="min",
@@ -544,11 +582,7 @@ class Undulator:
         return ret
 
     def srw_total_flux(
-        self,
-        gap="min",
-        energy=None,
-        harmonic=1,
-        **kwargs,
+        self, gap="min", energy=None, harmonic=1, **kwargs,
     ):
         """ Calculate photon flux at resonance; note: SWR find maximum
             intensity a bit below resonance (even with very small slits).
@@ -1089,6 +1123,69 @@ class Undulator:
     def __repr__(self):
         s = f"Undulator @ {self.elattice} lattice\nPeriod {self.period:.1f}mm, length {self.length}m, max K {self.k(gap=self.min_gap):.2f}"
         return s
+
+
+class WolfryUndulator:
+    def __init__(
+        self, energy=7, npoints=400, undulator=Undulator(), ebeam=None, k="auto"
+    ):
+
+        try:
+            from wofryimpl.propagator.util.undulator_coherent_mode_decomposition_1d import (
+                UndulatorCoherentModeDecomposition1D,
+            )
+        except ImportError:
+            print(
+                "could not import wofryimpl, did you start within right conda environment ?"
+            )
+            return None
+        if ebeam is None:
+            ebeam = undulator.ebeam
+
+        if isinstance(k, str) and k == "auto":
+            K = undulator.k(energy=energy)
+        else:
+            K = k
+        pars = dict(
+            electron_energy=ebeam.ebeam_energy,
+            electron_current=ebeam.sr_cur,
+            undulator_period=undulator.period / 1e3,
+            undulator_nperiods=undulator.N,
+            K=K,
+            photon_energy=energy * 1e3,
+            abscissas_interval=0.00025,
+            number_of_points=npoints,
+            distance_to_screen=100,
+            useGSMapproximation=False,
+        )
+        print(pars)
+        # cmd = coherent mode decomposition
+        self.cmd_h = UndulatorCoherentModeDecomposition1D(
+            **pars, scan_direction="H", sigmaxx=ebeam.sh, sigmaxpxp=ebeam.divh,
+        )
+
+        self.cmd_v = UndulatorCoherentModeDecomposition1D(
+            **pars, scan_direction="V", sigmaxx=ebeam.sv, sigmaxpxp=ebeam.divv
+        )
+        # make calculation
+        self.cmd_h_res = None
+        self.cmd_v_res = None
+
+    def get_h(self, mode=0):
+        if self.cmd_h_res is None:
+            self.cmd_h_res = self.cmd_h.calculate()
+        if isinstance(mode,int):
+            return self.cmd_h.get_eigenvector_wavefront(mode)
+        else:
+            return [self.cmd_h.get_eigenvector_wavefront(i) for i in mode]
+
+    def get_v(self, mode=0):
+        if self.cmd_v_res is None:
+            self.cmd_v_res = self.cmd_v.calculate()
+        if isinstance(mode,int):
+            return self.cmd_v.get_eigenvector_wavefront(mode)
+        else:
+            return [self.cmd_v.get_eigenvector_wavefront(i) for i in mode]
 
 
 cpmu15_gael = Undulator(

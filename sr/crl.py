@@ -19,13 +19,15 @@ DEFAULT_GSM = GSM_Numeric(wavelen=1e-10, rms_size=15e-6, rms_cl=2e-6).propagate(
 
 def _calc_sum_inverse(args):
     s = sum([1 / a for a in args])
-    if isinstance(s,sympy.Float): s = float(s)
+    if isinstance(s, sympy.Float):
+        s = float(s)
     return 1 / s
 
 
 def _calc_sum_square_inverse(args):
     s = sum([1 / a ** 2 for a in args])
-    if isinstance(s,sympy.Float): s = float(s)
+    if isinstance(s, sympy.Float):
+        s = float(s)
     return np.sqrt(1 / s)
 
 
@@ -34,6 +36,13 @@ def focal_length_single_lens(E, radius, material="Be", density=None):
     delta, beta = get_delta_beta(material, density=density, energy=E)
     f = radius / 2.0 / delta
     return f
+
+
+def get_radius_from_focal_length(E, f, material="Be", density=None):
+    """ returns the focal length for a single lens f=r/2/delta """
+    delta, beta = get_delta_beta(material, density=density, energy=E)
+    radius = f * 2 * delta
+    return radius
 
 
 class LensBlock:
@@ -103,6 +112,19 @@ class LensBlock:
     def aperture(self):
         return self._aperture
 
+    def __len__(self):
+        return self.n
+
+    def as_wolfry(self):
+        from .wolfry import wolfry_lens
+
+        return wolfry_lens(
+            n=self.n,
+            radius=self.radius,
+            material=self.material,
+            web_thickness=self.web_thickness,
+        )
+
     def __str__(self):
 
         return "%d%s%s lenses, r=%.1f μm, D=%.1f mm (2R_0=%.0f μm)" % (
@@ -118,13 +140,11 @@ class LensBlock:
         return self.__str__()
 
     def __short_repr__(self):
-        return "%d%s%.0f μm"%(self.n,TIMES,self.radius*1e6)
-
-
+        return "%d%s%.0f μm" % (self.n, TIMES, self.radius * 1e6)
 
 
 class LensSet:
-    def __init__(self, lens_set, material="Be",pinhole=None):
+    def __init__(self, lens_set, material="Be", pinhole=None):
         """
         lens_set = ( LensBlock1, LensBlock2, ....)
         OR
@@ -177,7 +197,7 @@ class LensSet:
         else:
             a = min([lb.aperture() for lb in self.lens_set])
         if self.pinhole is not None:
-            a = min(a,self.pinhole)
+            a = min(a, self.pinhole)
         return a
 
     def gaussian_aperture(self):
@@ -197,6 +217,22 @@ class LensSet:
             return _calc_sum_square_inverse(
                 [lb.absorption_opening(energy) for lb in self.lens_set]
             )
+
+    def apply_to_wolfry(self, wavefronts):
+        """ wavefronts is a list/tuple of wavefronts or a wavefront"""
+        from . import wolfry
+
+        if not isinstance(wavefronts, wolfry.WolfryWaveFronts):
+            wavefronts = wolfry.WolfryWaveFronts(wavefronts)
+        wfs = [w for w in wavefronts.wavefronts]
+        for lens in self.lens_set:
+            wolfry_lens = lens.as_wolfry()
+            for i in range(len(wfs)):
+                wfs[i] = wolfry_lens.applyOpticalElement(wfs[i])
+        if len(wfs) == 1:
+            return wfs[0]
+        else:
+            return wolfry.WolfryWaveFronts(wfs, xpos=wavefronts.xpos)
 
     def calc_focusing(
         self,
@@ -270,7 +306,8 @@ class LensSet:
             gsm_at_lens = gsm
         else:
             gsm_at_lens = gsm.propagate(source_distance)
-        if isinstance(gsm_at_lens,GSM): gsm_at_lens.evalf()
+        if isinstance(gsm_at_lens, GSM):
+            gsm_at_lens.evalf()
 
         input_rms_beam = float(gsm_at_lens.rms_size)
         input_R = float(gsm_at_lens.radius)
@@ -305,20 +342,19 @@ class LensSet:
 
         t = self.transmission_central_ray(energy)
 
-        if isinstance(gsm_at_lens,GSM):
-            beam_at_focus = GSM(wavelen=gsm_at_lens.wavelen,
+        if isinstance(gsm_at_lens, GSM):
+            beam_at_focus = GSM(
+                wavelen=gsm_at_lens.wavelen,
                 rms_size=focus_rms_size,
                 rms_cl=focus_cl,
                 auto_apply_evalf=gsm_at_lens.auto_apply_evalf,
-                )
+            )
         else:
-            beam_at_focus = GSM_Numeric(wavelen=gsm_at_lens.wavelen,
-                rms_size=focus_rms_size,
-                rms_cl=focus_cl,
-                )
+            beam_at_focus = GSM_Numeric(
+                wavelen=gsm_at_lens.wavelen, rms_size=focus_rms_size, rms_cl=focus_cl,
+            )
 
         gsm_at_lens = beam_at_focus.propagate(-focus_distance)
-
 
         res = ds(
             focal_length=fl,
@@ -331,7 +367,7 @@ class LensSet:
             lens_set=self.lens_set,
             transmission_central_ray=t,
             gsm_at_focus=beam_at_focus,
-            gsm_at_lens=gsm_at_lens
+            gsm_at_lens=gsm_at_lens,
         )
 
         if verbose:
@@ -395,6 +431,9 @@ class LensSet:
         b = self.calc_focusing(E, distance=distance, source_distance=source_distance)
         return b
 
+    def __len__(self):
+        return len(self.lens_set)
+
     def __repr__(self):
         if len(self.lens_set) == 0:
             return "No lenses"
@@ -405,10 +444,8 @@ class LensSet:
         if len(self.lens_set) == 0:
             return "No lenses"
         else:
-            t = ["%d%s%.0f μm"%(l.n,TIMES,l.radius*1e6) for l in self.lens_set]
+            t = ["%d%s%.0f μm" % (l.n, TIMES, l.radius * 1e6) for l in self.lens_set]
             return "\n".join(t)
-
-
 
 
 def dec2TrueFalse(n, npos=None):
@@ -439,15 +476,19 @@ class Transfocator:
         self.n_lenses_tot = n_tot
         self._focal_lengths_cache = dict()
 
-    def _focal_lengths(self,energy):
+    def _focal_lengths(self, energy):
         if not energy in self._focal_lengths_cache:
             _temp = [s.focal_length(energy) for s in self.all_sets]
             self._focal_lengths_cache[energy] = np.asarray(_temp)
         return self._focal_lengths_cache[energy]
 
     def find_best_set_for_focal_length(
-        self, energy=8, focal_length=10, accuracy_needed=0.1, verbose=False,
-        beam_fwhm = None
+        self,
+        energy=8,
+        focal_length=10,
+        accuracy_needed=0.1,
+        verbose=False,
+        beam_fwhm=None,
     ):
         """
         find lensset that has a certain focal_length (within accuracy_needed)
@@ -474,13 +515,16 @@ class Transfocator:
                 energy=energy,
                 focal_length=focal_length,
                 accuracy_needed=2 * accuracy_needed,
-                verbose=verbose
+                verbose=verbose,
             )
 
         good_lensets = self.all_sets[idx_good]
         transmission = [g.transmission_central_ray(energy) for g in good_lensets]
         if beam_fwhm is not None:
-            transmission_gauss_beam = [g.transmission_gaussian_beam(energy,gauss_beam_fwhm=beam_fwhm) for g in good_lensets]
+            transmission_gauss_beam = [
+                g.transmission_gaussian_beam(energy, gauss_beam_fwhm=beam_fwhm)
+                for g in good_lensets
+            ]
             idx_best = np.argmax(transmission_gauss_beam)
         else:
             idx_best = np.argmin(delta_fl[idx_good])
@@ -496,8 +540,8 @@ class Transfocator:
         )
         return ret
 
-    def __add__(self,other):
-        return Transfocator(self.lens_set+other.lens_set)
+    def __add__(self, other):
+        return Transfocator(self.lens_set + other.lens_set)
 
     def __repr__(self):
         lenses = self.lens_set
