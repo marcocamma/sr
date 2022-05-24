@@ -46,7 +46,7 @@ class Filter:
     def calc_transmission(self, E):
         T = 1
         for wafer in self.wafers:
-            T *= wafer.calc_transmission(E)
+            T *= wafer.calc_transmission(E,cross_section_kind="total")
         return T
 
     def __str__(self):
@@ -85,17 +85,25 @@ class Filters:
             itertools.product(*[range(n) for n in self._nfilters_per_axis])
         )
 
-        # calculate "progressive" combinations (only use one axis if one of previous one is used)
-        temp = [ (i,) for i in range(1,self._nfilters_per_axis[0])]
-        for i in range(1,self.naxis):
-            toadd = []
-            for previous in temp:
-                for newf in range(1,self._nfilters_per_axis[i]):
-                    toadd.append( (newf,)+previous )
-            temp.extend(toadd)
-        temp = [_complete_with_zeros(x,self.naxis) for x in temp]
-        temp.insert(0, [0,]*self.naxis)
-        self._att_progressive = temp
+        # select combinations that protect downbeam filters with upbeam ones
+        # i.e. axis3 will only be used if axis1 and axis2 are not empty
+        temp = []
+        iloop = list(reversed(range(self.naxis)))
+        for att in self._att:
+            attenuators = [self._att_list[axis][filtnum] for axis,filtnum in enumerate(att)]
+            # find most downbeam filter that is not empty
+            axis = 0
+            for i in iloop:
+                if not isinstance(attenuators[i],EmptySlot):
+                    last_non_empty_axis = i
+                    break
+            # verify that all previous filters are not empty
+            if axis != 0 and all( [not isinstance(attenuators[i],EmptySlot) for i in range(last_non_empty_axis)] ):
+                temp.append(att)
+
+        self._att_protect_downbeam = temp
+        self.CACHE = dict()
+        self.CACHE_protect_downbeam = dict()
 
 
 
@@ -108,9 +116,16 @@ class Filters:
         return T
 
     def _calc_all_transmissions(self, E):
-        return np.asarray([self.calc_transmission(E, filters) for filters in self._att])
-    def _calc_all_transmissions_progressive(self, E):
-        return np.asarray([self.calc_transmission(E, filters) for filters in self._att_progressive])
+        if E not in self.CACHE:
+            data = np.asarray([self.calc_transmission(E, filters) for filters in self._att])
+            self.CACHE[E]=data
+        return self.CACHE[E]
+
+    def _calc_all_transmissions_protect_downbeam(self, E):
+        if E not in self.CACHE_protect_downbeam:
+            data = np.asarray([self.calc_transmission(E, filters) for filters in self._att_protect_downbeam])
+            self.CACHE_protect_downbeam[E]=data
+        return self.CACHE_protect_downbeam[E]
 
     def _show_axis(self, axis=0):
         filters = self._att_list[axis]
@@ -128,34 +143,35 @@ class Filters:
     def __repr__(self):
         return "\n".join([self._show_axis(axis) for axis in range(self.naxis)])
 
-    def calc_best_transmission(self, E, requested_tramission, verbose=False,use_progressive=False):
+    def calc_best_transmission(self, E, requested_transmission, verbose=False,use_protect_downbeam=False):
         """ E must be a float, can't be a vector """
         E = float(E)
-        if use_progressive:
-            t = self._calc_all_transmissions(E)
-            best = np.argmin(np.abs(t - requested_tramission))
-            best_combination = self._att[best]
+        if use_protect_downbeam:
+            t = self._calc_all_transmissions_protect_downbeam(E)
+            best = np.argmin(np.abs(t - requested_transmission))
+            best_combination = self._att_protect_downbeam[best]
         else:
-            t = self._calc_all_transmissions_progressive(E)
-            best = np.argmin(np.abs(t - requested_tramission))
-            best_combination = self._att_progressive[best]
+            t = self._calc_all_transmissions(E)
+            best = np.argmin(np.abs(t - requested_transmission))
+            best_combination = self._att[best]
         t_1E = t[best]
         t_2E = self.calc_transmission(2 * E, best_combination)
         t_3E = self.calc_transmission(3 * E, best_combination)
         if verbose:
-            print(f"Finding set for T={requested_tramission:.3g} @ {E:.3f} keV")
+            print(f"Finding set for T={requested_transmission:.3g} @ {E:.3f} keV")
             print(f"best set is {best_combination}:")
             print(f"  {self._show_combination(best_combination)}")
             print(
-                f"transmission @  E is {float(t[best]):.3g} (asked {requested_tramission:.3g})"
+                f"transmission @  E is {float(t[best]):.3g} (asked {requested_transmission:.3g})"
             )
             print(f"transmission @ 2E is {t_2E:.3g}")
             print(f"transmission @ 3E is {t_3E:.3g}")
         return DataStorage(
-            bestset=best_combination,
+            bestset_key=best_combination,
+            bestset=[self._att_list[i][f] for i,f in enumerate(best_combination)],
             transmission=t_1E,
             energy=E,
-            transmission_requested=requested_tramission,
+            transmission_requested=requested_transmission,
             t1E=t_1E,
             t2E=t_2E,
             t3E=t_3E,
@@ -201,9 +217,9 @@ def test_filters():
 
     # test few cases
 
-    E = 8
-    for t in [0.01, 0.03, 0.1, 0.3, 0.85, 1]:
-        filters.calc_best_transmission(E, t)
+    #E = 8
+    #for t in [0.01, 0.03, 0.1, 0.3, 0.85, 1]:
+    #    filters.calc_best_transmission(E, t)
     return filters
 
 
