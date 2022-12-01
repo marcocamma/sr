@@ -1,0 +1,34 @@
+#! /usr/bin/env python3
+
+import pathlib
+import sys
+
+folder = pathlib.Path(__file__).parent.absolute()
+folder = folder.parent
+
+if str(folder) not in sys.path:
+    sys.path.insert(0, str(folder))
+import sr
+
+import argparse
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("--list", action="store_true",help="use to display predefined compounds")
+parser.add_argument("--energy", type=float, default=7,help="X-ray photon energy (in keV)")
+parser.add_argument("--thickness", type=float, default=1e-3,help="thickness in m")
+parser.add_argument("--material", type=str, default="Si",help="material formula or predefined name")
+parser.add_argument("--density", default=None,help="density in g/cm3")
+
+args = parser.parse_args()
+if args.list:
+    sr.materials.list_materials()
+else:
+    print(
+        f"Transmission of {args.thickness} m of {args.material} at {args.energy} keV is ",
+        sr.materials.transmission(
+            material=args.material,
+            thickness=args.thickness,
+            energy=args.energy,
+            density=args.density,
+        ),
+    )
