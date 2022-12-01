@@ -10,8 +10,10 @@ import collections
 import copy
 
 from functools import lru_cache
-from .utils.conversion import energy_to_wavelength
-from . import undulator
+try:
+    from .utils.conversion import energy_to_wavelength
+except ImportError:
+    def energy_to_wavelength(energy): return 12.398/energy
 
 import xraydb as xdb
 
@@ -294,6 +296,7 @@ class Wafer:
 
     def photon_flux_after_wafer(self, photon_flux_before, cross_section_kind="total"):
         """ does not take into account finite size of mirrors """
+        from . import undulator
         photon_flux_before = copy.deepcopy(photon_flux_before)
         t = self.calc_transmission(
             photon_flux_before.energy, cross_section_kind=cross_section_kind

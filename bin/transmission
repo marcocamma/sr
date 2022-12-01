@@ -2,16 +2,15 @@
 
 import pathlib
 import sys
-
-folder = pathlib.Path(__file__).parent.absolute()
+import os
+folder = pathlib.Path(__file__).resolve().parent.absolute()
 folder = folder.parent
 
 if str(folder) not in sys.path:
     sys.path.insert(0, str(folder))
-import sr
 
 import argparse
-
+import materials
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--list", action="store_true",help="use to display predefined compounds")
 parser.add_argument("--energy", type=float, default=7,help="X-ray photon energy (in keV)")
@@ -25,7 +24,7 @@ if args.list:
 else:
     print(
         f"Transmission of {args.thickness} m of {args.material} at {args.energy} keV is ",
-        sr.materials.transmission(
+        materials.transmission(
             material=args.material,
             thickness=args.thickness,
             energy=args.energy,

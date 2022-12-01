@@ -25,5 +25,7 @@ setup(name='sr',
           'numpy',
           'h5py',
           'datastorage',
+          'xraydb',
+          'sympy',
       ],
       zip_safe=False)
