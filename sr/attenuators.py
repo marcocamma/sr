@@ -2,6 +2,10 @@ import numpy as np
 import itertools
 from .materials import Wafer
 
+try:
+    from datastorage import DataStorage
+except ImportError:
+    DataStorage = dict
 
 def front_end_transmission(E, diamond_thickness=300e-6):
     cvd = Wafer(material="C", thickness=diamond_thickness, density=3.52)
