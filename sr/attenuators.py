@@ -1,6 +1,5 @@
 import numpy as np
 import itertools
-from datastorage import DataStorage
 from .materials import Wafer
 
 
