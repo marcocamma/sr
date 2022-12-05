@@ -11,7 +11,7 @@ from .. import undulator
 #from .abcd import 
 from .optics import hard_aperture
 from .optics import lens
-from .useful_beams import id18h
+#from .useful_beams import id18h
 from ..crl import LensBlock, Transfocator
 
 transfocator = Transfocator([LensBlock(2 ** i, radius=500e-6) for i in range(8)])
@@ -92,7 +92,7 @@ def find_fl(beam, dist, verbose=True):
 
 
 def propagate(
-    beam=id18h,
+    beam,
     optics=[[40, "x1", "coll"], [150, "x1", "focus@200"]],
     z=np.arange(0, 230, 0.5),
     use_transfocator=True,
