@@ -5,9 +5,11 @@ from scipy.integrate import trapz, cumtrapz
 from datastorage import DataStorage as ds
 import copy
 from . import beam
-from .abcd.optics import GSM_Numeric
 from .utils.conversion import energy_to_wavelength
-
+try:
+    from .abcd.optics import GSM_Numeric
+except ImportError:
+    pass
 mc2 = m_e * c ** 2 / eV / 1e9
 
 

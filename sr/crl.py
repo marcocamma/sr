@@ -6,15 +6,17 @@ from .materials import get_delta_beta, attenuation_length
 from .utils.conversion import energy_to_wavelength, wavelength_to_energy
 from .utils.unicode import times as TIMES
 from .utils.unicode import mu as MU
-from .abcd.optics import GSM
-from .abcd.optics import GSM_Numeric
 import numpy as np
 from numpy import real
 import datetime
 import os
 
-
-DEFAULT_GSM = GSM_Numeric(wavelen=1e-10, rms_size=15e-6, rms_cl=2e-6).propagate(50)
+try:
+    from .abcd.optics import GSM
+    from .abcd.optics import GSM_Numeric
+    DEFAULT_GSM = GSM_Numeric(wavelen=1e-10, rms_size=15e-6, rms_cl=2e-6).propagate(50)
+except ImportError:
+    DEFAULT_GSM = None
 
 
 def _calc_sum_inverse(args):
