@@ -271,7 +271,7 @@ class Wafer:
         self.name = name
         formula,density = get_material(name, density)
         self.formula=formula
-        self.density = density
+        self.density = float(density)
         self.thickness = thickness
 
     def get_att_len(self, E, kind="total"):
