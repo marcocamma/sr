@@ -20,7 +20,7 @@ parser.add_argument("--density", default=None,help="density in g/cm3")
 
 args = parser.parse_args()
 if args.list:
-    sr.materials.list_materials()
+    materials.list_materials()
 else:
     print(
         f"Transmission of {args.thickness} m of {args.material} at {args.energy} keV is ",
