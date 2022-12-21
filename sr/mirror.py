@@ -148,7 +148,7 @@ def find_mirror(
         idx1 = r > reflectivity
         idx3 = r3 < max_3E_reflectivity
         if (idx1 & idx3).sum() > 0:
-            idx = np.argwhere(idx1 & idx3).ravel()[-1]  # take biggest angle
+            idx = np.argwhere(idx1 & idx3).ravel()[0]  # take smallest angle (higher reflec)
             return ds(
                 surface=mirror.material_name,
                 angle=angles[idx],
