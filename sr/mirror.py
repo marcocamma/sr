@@ -154,6 +154,8 @@ def find_mirror(
                 angle=angles[idx],
                 two_bounces_reflectivity=r[idx],
                 two_bounces_reflectivity_3E=r3[idx],
+                critical_angle=mirror.critical_angle(E),
+                cutoff_energy=mirror.cutoff_energy(angles[idx])
             )
     if verbose:
         print(
