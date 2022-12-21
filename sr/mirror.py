@@ -3,12 +3,14 @@ import copy
 from . import undulator
 from datastorage import DataStorage as ds
 import xrt.backends.raycing.materials as rm
-
+from xrt.backends.raycing.physconsts import AVOGADRO
 from functools import lru_cache
 
 _bulk_densities = dict(Pt=21.45, Pd=12.02, Si=2.329)
 _density_factor = dict(Pt=0.9, Pd=0.9, Si=1)
 
+R_ELECTRON = 2.818e-13 # in cm
+from xrt.backends.raycing.physconsts import PI
 
 def coddington_meridional(p, q, theta):
     """ return radius of curvature """
@@ -60,7 +62,11 @@ class Mirror:
         """
         self.material_name = material
         self.material = get_material(material,rho=rho)
-        self.rho = rho
+        self.rho = self.material.rho
+        atom = self.material.elements[0]
+        edens_elem = atom.Z*self.rho/atom.mass*AVOGADRO
+        self.edens = edens_elem
+
 
     @lru_cache(maxsize=4096*10)
     def _reflectivity_float(self, E, angle):
@@ -69,6 +75,7 @@ class Mirror:
         return intensity_reflectivity
 
     def reflectivity(self, E, angle):
+        """ single bounce reflectivity """
         try:
             E = float(E)
             return self._reflectivity_float(E, angle)
@@ -82,6 +89,24 @@ class Mirror:
         """ reflectivity for double bounce """
         return self.reflectivity(E, angle) ** 2
 
+    def critical_angle(self,energy):
+        """ energy in keV, returns angle in rad """
+        n = self.material.get_refractive_index(energy*1e3)
+        delta = 1-n.real
+        return np.sqrt(2*delta)
+
+    def cutoff_energy(self,angle):
+        """ angle is in radians, returns cutoff_energy in keV """
+        def f(E):
+            return self.critical_angle(E)-angle
+        from scipy.optimize import bisect
+        try:
+            ret = bisect(f,4,50,xtol=1e-4,rtol=1e-4)
+        except ValueError:
+            print("No cutoff energy found in the 4,50 keV range")
+            ret = np.nan
+        return float(ret)
+    
     def photon_flux_after_mirror(self,photon_flux_before,angle,nbounces=2):
         """ does not take into account finite size of mirrors """
         photon_flux_before = copy.deepcopy(photon_flux_before)
@@ -91,6 +116,11 @@ class Mirror:
         after = undulator._photon_flux_density_helper(photon_flux_before)
         return after
 
+    def __str__(self):
+        return f"{self.material_name} Mirror, density {self.rho} gr/cm3"
+
+    def __repr__(self):
+        return self.__str__()
 
 id18_mirrors = [
     Mirror(material="Si", rho=_bulk_densities["Si"] * _density_factor["Si"]),
