@@ -1,6 +1,10 @@
 import itertools
 import copy
-import sympy
+
+try:
+    import sympy
+except ImportError:
+    print("No sympy module")
 from datastorage import DataStorage as ds
 from .materials import get_delta_beta, attenuation_length
 from .utils.conversion import energy_to_wavelength, wavelength_to_energy
@@ -14,6 +18,7 @@ import os
 try:
     from .abcd.optics import GSM
     from .abcd.optics import GSM_Numeric
+
     DEFAULT_GSM = GSM_Numeric(wavelen=1e-10, rms_size=15e-6, rms_cl=2e-6).propagate(50)
 except ImportError:
     DEFAULT_GSM = None
@@ -27,21 +32,21 @@ def _calc_sum_inverse(args):
 
 
 def _calc_sum_square_inverse(args):
-    s = sum([1 / a ** 2 for a in args])
+    s = sum([1 / a**2 for a in args])
     if isinstance(s, sympy.Float):
         s = float(s)
     return np.sqrt(1 / s)
 
 
 def focal_length_single_lens(E, radius, material="Be", density=None):
-    """ returns the focal length for a single lens f=r/2/delta """
+    """returns the focal length for a single lens f=r/2/delta"""
     delta, beta = get_delta_beta(material, density=density, energy=E)
     f = radius / 2.0 / delta
     return f
 
 
 def get_radius_from_focal_length(E, f, material="Be", density=None):
-    """ returns the focal length for a single lens f=r/2/delta """
+    """returns the focal length for a single lens f=r/2/delta"""
     delta, beta = get_delta_beta(material, density=density, energy=E)
     radius = f * 2 * delta
     return radius
@@ -57,7 +62,7 @@ class LensBlock:
         thickness=1e-3,
         web_thickness=30e-6,
     ):
-        """ a LensBlock is a number of identical lenses """
+        """a LensBlock is a number of identical lenses"""
         self.n = n
         self.radius = radius
         self.material = material
@@ -98,9 +103,9 @@ class LensBlock:
         transmission = (
             R
             * l0
-            * (1 - exp((d - t) * (2 * N * sig ** 2 + R * l0) / (2 * l0 * sig ** 2)))
+            * (1 - exp((d - t) * (2 * N * sig**2 + R * l0) / (2 * l0 * sig**2)))
             * exp(-N * d / l0)
-            / (2 * N * sig ** 2 + R * l0)
+            / (2 * N * sig**2 + R * l0)
         )
         return transmission
 
@@ -151,7 +156,7 @@ class LensSet:
         lens_set = ( LensBlock1, LensBlock2, ....)
         OR
         lens_set = ( (n1,radius1,thick1),
-                      n2,radius2,thick2),...) 
+                      n2,radius2,thick2),...)
         thick is the thickness of each lens (1mm if not given)
 
         material is NOT used if lens_set is defined as list of LensBlock
@@ -203,7 +208,7 @@ class LensSet:
         return a
 
     def gaussian_aperture(self):
-        """ see singer&vartanyans JSR 2014 appendix A"""
+        """see singer&vartanyans JSR 2014 appendix A"""
         return self.aperture() / 4.55
 
     def focal_length(self, energy=10):
@@ -221,7 +226,7 @@ class LensSet:
             )
 
     def apply_to_wolfry(self, wavefronts):
-        """ wavefronts is a list/tuple of wavefronts or a wavefront"""
+        """wavefronts is a list/tuple of wavefronts or a wavefront"""
         from . import wolfry
 
         if not isinstance(wavefronts, wolfry.WolfryWaveFronts):
@@ -265,9 +270,9 @@ class LensSet:
         # = w_unfocused/focus_distance we can obtain
         waist = lam / np.pi * focus_distance / w_unfocused
         waist_fwhm = waist * 2.35 / 2.0
-        rayleigh_range = np.pi * waist ** 2 / lam
+        rayleigh_range = np.pi * waist**2 / lam
         size = waist * np.sqrt(
-            1.0 + (distance - focus_distance) ** 2.0 / rayleigh_range ** 2
+            1.0 + (distance - focus_distance) ** 2.0 / rayleigh_range**2
         )
         fwhm_at_dist = size / 2 * 2.35
         t = self.transmission_central_ray(energy)
@@ -301,9 +306,13 @@ class LensSet:
         return res
 
     def calc_focusing_GSM(
-        self, gsm=DEFAULT_GSM, source_distance=None, slit_opening=4e-3, verbose=True,
+        self,
+        gsm=DEFAULT_GSM,
+        source_distance=None,
+        slit_opening=4e-3,
+        verbose=True,
     ):
-        """ Based on Singer&Vartanyans JSR 2014 """
+        """Based on Singer&Vartanyans JSR 2014"""
         if source_distance is None:
             gsm_at_lens = gsm
         else:
@@ -334,13 +343,13 @@ class LensSet:
         # gdc = global_degree_of_coherence
         tilde_gdc = 1 / np.sqrt(1 + (2 * tilde_Sigma / tilde_cl) ** 2)
 
-        Z_L = 2 * k * tilde_Sigma ** 2 * tilde_gdc
+        Z_L = 2 * k * tilde_Sigma**2 * tilde_gdc
 
         # distance_at which it will focus (1/a+1/b=1/f)
         focus_distance = -tilde_R / (1 + (tilde_R / Z_L) ** 2)
         focus_rms_size = tilde_Sigma / np.sqrt(1 + (Z_L / tilde_R) ** 2)
         focus_cl = tilde_cl / np.sqrt(1 + (Z_L / tilde_R) ** 2)
-        rayleigh_range = 4 * k * focus_rms_size ** 2 * tilde_gdc
+        rayleigh_range = 4 * k * focus_rms_size**2 * tilde_gdc
 
         t = self.transmission_central_ray(energy)
 
@@ -353,7 +362,9 @@ class LensSet:
             )
         else:
             beam_at_focus = GSM_Numeric(
-                wavelen=gsm_at_lens.wavelen, rms_size=focus_rms_size, rms_cl=focus_cl,
+                wavelen=gsm_at_lens.wavelen,
+                rms_size=focus_rms_size,
+                rms_cl=focus_cl,
             )
 
         gsm_at_lens = beam_at_focus.propagate(-focus_distance)
@@ -398,7 +409,7 @@ class LensSet:
         self, distance=4.0, source_distance=150, slit_opening=4e-3, fwhm_beam=500e-6
     ):
 
-        """ 
+        """
         finds the energy that would focus at a given distance (default = 4m)
         """
 
@@ -454,7 +465,9 @@ def dec2TrueFalse(n, npos=None):
     c = bin(n)[2:]  # remove 'header' 0b
     ret = list(map(bool, map(int, c)))
     if npos is not None and npos > len(c):
-        ret = [False,] * (npos - len(c)) + ret
+        ret = [
+            False,
+        ] * (npos - len(c)) + ret
     return ret
 
 
@@ -558,9 +571,9 @@ class Transfocator:
 
 
 def findEnergy(lens_set, distance=4.0, source_distance=150, material="Be"):
-    """ usage findEnergy( (2,200e-6,4,500e-6) ,distance =4 )
-      finds the neergy that would focus at a given distance (default = 4m)
-  """
+    """usage findEnergy( (2,200e-6,4,500e-6) ,distance =4 )
+    finds the neergy that would focus at a given distance (default = 4m)
+    """
     lens_set = LensSet(lens_set, material=material)
 
     def calc(E):
