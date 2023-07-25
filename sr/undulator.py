@@ -2,15 +2,17 @@ import numpy as np
 from scipy import special
 from scipy.constants import m_e, c, eV
 from scipy.integrate import trapz, cumtrapz
+import functools
 from datastorage import DataStorage as ds
 import copy
 from . import beam
 from .utils.conversion import energy_to_wavelength
+
 try:
     from .abcd.optics import GSM_Numeric
 except ImportError:
     pass
-mc2 = m_e * c ** 2 / eV / 1e9
+mc2 = m_e * c**2 / eV / 1e9
 
 
 def _integrate2d(h, v, i):
@@ -44,14 +46,14 @@ def b_field_cryoT(gap=6, period=18):
 
 
 def gamma(E):
-    """ relativisitc approxiamtion """
+    """relativisitc approxiamtion"""
     return E / mc2
 
 
 def k_value(B=0.5, period=18):
-    """ k = e/2/pi/m/c*period*B
-        B is peak field of undulator [T]
-        period is period in mm """
+    """k = e/2/pi/m/c*period*B
+    B is peak field of undulator [T]
+    period is period in mm"""
     return 0.09337 * B * period
 
 
@@ -62,43 +64,43 @@ def b_field_from_k(k=1, period=18):
 def E_undulator(harmonic=1, ebeam_energy=6, k=1.5, period=18, theta=0):
     g = gamma(ebeam_energy)
     period_cm = period / 10
-    num = harmonic * 0.95 * ebeam_energy ** 2
-    den = period_cm * (1 + k ** 2 / 2 + (g * theta) ** 2)
+    num = harmonic * 0.95 * ebeam_energy**2
+    den = period_cm * (1 + k**2 / 2 + (g * theta) ** 2)
     return num / den
 
 
 def _Q(harmonic=1, k=1.5):
-    x = harmonic * k ** 2 / 2 / (k ** 2 + 2)
+    x = harmonic * k**2 / 2 / (k**2 + 2)
     o2 = int((harmonic + 1) / 2)
     o1 = int((harmonic - 1) / 2)
     q = (
         harmonic
-        * k ** 2
-        / (1 + (k ** 2 / 2))
+        * k**2
+        / (1 + (k**2 / 2))
         * (special.jn(o1, x) - special.jn(o2, x)) ** 2
     )
     return q
 
 
 def photon_flux(harmonic=1, nperiods=100, sr_current=0.2, k=1.5):
-    """ returns flux in photons/sec/1e-3 bandwidth 
-        from hercules book n. page 50
+    """returns flux in photons/sec/1e-3 bandwidth
+    from hercules book n. page 50
     """
     q = _Q(harmonic=harmonic, k=k)
     return 1.43e14 * nperiods * sr_current * q
 
 
 def total_power(ebeam_energy=6, peak_field=1, undulator_L=1, sr_current=0.2):
-    """ return power in W """
-    return 0.633 * 1e3 * ebeam_energy ** 2 * peak_field ** 2 * undulator_L * sr_current
+    """return power in W"""
+    return 0.633 * 1e3 * ebeam_energy**2 * peak_field**2 * undulator_L * sr_current
 
 
 def power_density(
     ebeam_energy=6, peak_field=1, undulator_n_period=100, k=1.5, sr_current=0.2
 ):
-    """ return power density (W/mrad**2); G(K) is approaximated !! """
+    """return power density (W/mrad**2); G(K) is approaximated !!"""
     G = 2 * np.arctan(k * np.pi) / np.pi
-    return 10.84 * ebeam_energy ** 4 * peak_field * undulator_n_period * sr_current * G
+    return 10.84 * ebeam_energy**4 * peak_field * undulator_n_period * sr_current * G
 
 
 def _photon_flux_density_helper(data):
@@ -200,7 +202,7 @@ class Undulator:
     def calc_sizes_and_coherence_lengths(
         self, dist, gap="min", energy=None, harmonic=1, return_fwhm=False, **kwargs
     ):
-        """ by default returns RMS size and divergences """
+        """by default returns RMS size and divergences"""
         use_srw = kwargs.get("use_srw", False)
         if energy is not None:
             pars = self.find_harmonic_and_gap(
@@ -273,7 +275,9 @@ class Undulator:
             gsmv = gsmv.propagate(distance)
         return ds(h=gsmh, v=gsmv)
 
-    def as_wolfry(self, gap="min", energy=None, harmonic=1, npoints=400, k="auto",**kwargs):
+    def as_wolfry(
+        self, gap="min", energy=None, harmonic=1, npoints=400, k="auto", **kwargs
+    ):
 
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
@@ -288,7 +292,10 @@ class Undulator:
             energy = self.photon_energy(gap=gap, harmonic=harmonic)
 
         return WolfryUndulator(
-            energy=energy, npoints=npoints, undulator=self, k=k,
+            energy=energy,
+            npoints=npoints,
+            undulator=self,
+            k=k,
         )
 
     def as_gsm(self, gap="min", energy=None, harmonic=1, distance=None, **kwargs):
@@ -429,7 +436,7 @@ class Undulator:
             number of point in horizontal direction
         v : (min,max) or value [mm]
             start/end of vertical slit. If a single value the range -value/2,value/2 is used
- 
+
         nv: int
             number of point in vertical direction
         e : [min,max] or value [keV]
@@ -584,11 +591,15 @@ class Undulator:
         return ret
 
     def srw_total_flux(
-        self, gap="min", energy=None, harmonic=1, **kwargs,
+        self,
+        gap="min",
+        energy=None,
+        harmonic=1,
+        **kwargs,
     ):
-        """ Calculate photon flux at resonance; note: SWR find maximum
-            intensity a bit below resonance (even with very small slits).
-            The value might be a bit underestimated
+        """Calculate photon flux at resonance; note: SWR find maximum
+        intensity a bit below resonance (even with very small slits).
+        The value might be a bit underestimated
         """
         r = self.srw_photon_flux(
             gap=gap,
@@ -612,9 +623,9 @@ class Undulator:
         nrays=1000,
         **kwargs,
     ):
-        """ use distE = 'eV' for 
-            - XRT ray tracing (for example important when using fluxkind='power')
-            use distE = 'BW' for spectral calculations of sr """
+        """use distE = 'eV' for
+        - XRT ray tracing (for example important when using fluxkind='power')
+        use distE = 'BW' for spectral calculations of sr"""
         import xrt.backends.raycing.sources as rs
 
         use_srw = kwargs.get("use_srw", False)
@@ -686,7 +697,7 @@ class Undulator:
             number of point in horizontal direction
         v : (min,max) or value [mm]
             start/end of vertical slit. If a single value the range -value/2,value/2 is used
- 
+
         nv: int
             number of point in vertical direction
         e : [min,max] or value [keV]
@@ -810,7 +821,7 @@ class Undulator:
 
     def photon_energy(self, gap="min", harmonic=1, theta=0, **k_value):
         """
-        Returns X-ray photon energy (in keV) 
+        Returns X-ray photon energy (in keV)
         """
 
         if isinstance(gap, str) and gap == "min":
@@ -867,7 +878,7 @@ class Undulator:
         )
 
     def photon_beam_emittance(self, gap="min", energy=None, harmonic=1, **kwargs):
-        """ in mrad^2 mm^2 """
+        """in mrad^2 mm^2"""
         use_srw = kwargs.get("use_srw", False)
         if energy is not None:
             pars = self.find_harmonic_and_gap(
@@ -898,7 +909,7 @@ class Undulator:
         else:
             f = self.flux(gap=gap, harmonic=harmonic)
         e = self.photon_beam_emittance(gap=gap, harmonic=harmonic)
-        return f / e / (4 * np.pi ** 2)
+        return f / e / (4 * np.pi**2)
 
     def coherent_flux(
         self, gap="min", energy=None, harmonic=1, use_srw=False, bw=1.4e-4, **kwargs
@@ -932,11 +943,11 @@ class Undulator:
         b = self.brilliance(gap=gap, harmonic=harmonic)
         e = self.photon_energy(gap, harmonic=harmonic)
         l = beam._keV_ang / e
-        D = 8.3e-25 * b * l ** 3  # from J. Als Nielnsen book, eq. 2.28
+        D = 8.3e-25 * b * l**3  # from J. Als Nielnsen book, eq. 2.28
         return D
 
     def total_power(self, gap="min", energy=None, **kwargs):
-        """ kwargs is used to throw at it other parameters from gap scan """
+        """kwargs is used to throw at it other parameters from gap scan"""
         if energy is not None:
             pars = self.find_harmonic_and_gap(
                 energy, sort_harmonics=True, use_srw=use_srw
@@ -955,7 +966,7 @@ class Undulator:
         )
 
     def power_density(self, gap="min", energy=None, **kwargs):
-        """ return power density (W/mrad**2); appraoximated for low K is approaximated !! """
+        """return power density (W/mrad**2); appraoximated for low K is approaximated !!"""
         if energy is not None:
             pars = self.find_harmonic_and_gap(
                 energy, sort_harmonics=True, use_srw=use_srw
@@ -1072,10 +1083,10 @@ class Undulator:
         use_srw=False,
         **kwargs,
     ):
-        """ if sort_harmonics is False it returns a tuple with index the (odd)
-            harmonic (i.e. index 0 is harm 1, index 1 is harm 3, ...)
-            if sort_harmonics is False the different harmonics are sorted by
-            increasing flux
+        """if sort_harmonics is False it returns a tuple with index the (odd)
+        harmonic (i.e. index 0 is harm 1, index 1 is harm 3, ...)
+        if sort_harmonics is False the different harmonics are sorted by
+        increasing flux
         """
 
         # find right harmonic
@@ -1163,7 +1174,10 @@ class WolfryUndulator:
         print(pars)
         # cmd = coherent mode decomposition
         self.cmd_h = UndulatorCoherentModeDecomposition1D(
-            **pars, scan_direction="H", sigmaxx=ebeam.sh, sigmaxpxp=ebeam.divh,
+            **pars,
+            scan_direction="H",
+            sigmaxx=ebeam.sh,
+            sigmaxpxp=ebeam.divh,
         )
 
         self.cmd_v = UndulatorCoherentModeDecomposition1D(
@@ -1176,7 +1190,7 @@ class WolfryUndulator:
     def get_h(self, mode=0):
         if self.cmd_h_res is None:
             self.cmd_h_res = self.cmd_h.calculate()
-        if isinstance(mode,int):
+        if isinstance(mode, int):
             return self.cmd_h.get_eigenvector_wavefront(mode)
         else:
             return [self.cmd_h.get_eigenvector_wavefront(i) for i in mode]
@@ -1184,7 +1198,7 @@ class WolfryUndulator:
     def get_v(self, mode=0):
         if self.cmd_v_res is None:
             self.cmd_v_res = self.cmd_v.calculate()
-        if isinstance(mode,int):
+        if isinstance(mode, int):
             return self.cmd_v.get_eigenvector_wavefront(mode)
         else:
             return [self.cmd_v.get_eigenvector_wavefront(i) for i in mode]
@@ -1232,7 +1246,7 @@ def get_cpmu(period=18, length=2, min_gap=6, minibeta=False, beta_v=1, beta_h=1)
     else:
         ebeam = beam.e_beam("EBS")
     if min_gap == "auto":
-        min_gap = max(3.5, 2.75 * np.sqrt(ebeam.betav + length ** 2 / 4 / ebeam.betav))
+        min_gap = max(3.5, 2.75 * np.sqrt(ebeam.betav + length**2 / 4 / ebeam.betav))
     return Undulator(
         length=length,
         gap_to_b=b_field_cryoT,
@@ -1254,10 +1268,30 @@ u17 = Undulator(
 )
 
 
-id10_u27 = Undulator(
-    length=1.6, gap_to_b="roomT", period=27, min_gap=11, name="u27_in_air"
+_id10_u35a = functools.partial(
+    b_field, halbach_coeff=2.0028, b_coeff=1.0015, period=34.984
+)
+id10_u35a = Undulator(
+    length=1.6, gap_to_b=_id10_u35a, period=34.984, min_gap=12, name="u35a"
 )
 
-id10_u34 = Undulator(
-    length=1.6, gap_to_b="roomT", period=34, min_gap=11, name="u34_in_air"
+_id10_u35b = functools.partial(
+    b_field, halbach_coeff=2.0786, b_coeff=1.0276, period=35.225
+)
+id10_u35b = Undulator(
+    length=1.6, gap_to_b=_id10_u35b, period=35.225, min_gap=12, name="u35b"
+)
+
+_id10_u27b = functools.partial(
+    b_field, halbach_coeff=2.0411, b_coeff=1.0237, period=27.203
+)
+id10_u27b = Undulator(
+    length=1.6, gap_to_b=_id10_u27b, period=27.203, min_gap=12, name="u27b"
+)
+
+_id10_u27c = functools.partial(
+    b_field, halbach_coeff=1.9084, b_coeff=1.0061, period=27.219
+)
+id10_u27c = Undulator(
+    length=1.6, gap_to_b=_id10_u27c, period=27.219, min_gap=12, name="u27b"
 )
