@@ -213,11 +213,17 @@ class Filters:
         else:
             txt = "; ".join(txt)
 
+
+        all_filters = [str(a[1]) for a in self._att_list]
+        installed_filters = "; ".join(all_filters)
+
         return DataStorage(
             filter_selection=filter_selection,
             filters=filters,
             filters_string=info_str,
-            total_lengths=txt,
+            all_filters = installed_filters,
+            total_lengths_string=txt,
+            total_lengths = sum_mat,
             transmission=t_1E,
             energy=E,
             t1E=t_1E,
@@ -229,7 +235,7 @@ class Filters:
         filters = [
             self._att_list[axis][num] for axis, num in enumerate(filter_selection)
         ]
-        return "|".join([str(f) for f in filters])
+        return "; ".join([str(f) for f in filters])
 
     def __repr__(self):
         return "\n".join([self._show_axis(axis) for axis in range(self.naxis)])
