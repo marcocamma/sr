@@ -122,6 +122,7 @@ DENSITIES = dict(
     CdTe=5.85,
     Si3N4=3.17,
     silicon_nitride=3.17,
+    yag=4.56,
 )
 
 CHEMICAL_FORMULAS = dict(
@@ -133,6 +134,7 @@ CHEMICAL_FORMULAS = dict(
     mylar="C10H8O4",
     ambient_air="N1.562O0.42C0.0003Ar0.0094",
     silicon_nitride="Si3N4",
+    yag="Y3Al5O12",
 )
 
 AVOGADRO = 6.02214199e23
