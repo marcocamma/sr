@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import special
 from scipy.constants import m_e, c, eV
-from scipy.integrate import trapz, cumtrapz
+from scipy.integrate import trapezoid, cumulative_trapezoid
 import functools
 from datastorage import DataStorage as ds
 import copy
@@ -19,11 +19,11 @@ def _integrate2d(h, v, i):
     # dh = h[1]-h[0]
     # dv = v[1]-v[0]
     # return i.sum(axis=(1,2))*dv*dh
-    return trapz(trapz(i, x=h, axis=-1), x=v, axis=-1)
+    return trapezoid(trapezoid(i, x=h, axis=-1), x=v, axis=-1)
 
 
 def _integrate1d(e, i):
-    return trapz(i, x=e, axis=0)
+    return trapezoid(i, x=e, axis=0)
     # de = e[1]-e[0]
     # return i.sum(axis=0)*de
 
@@ -122,7 +122,7 @@ def _photon_flux_density_helper(data):
         power_total = np.nan
     else:
         power_density = _integrate1d(data.energy, spectral_power_density)
-        power_cumulative = cumtrapz(spectral_power, x=data.energy, initial=0)
+        power_cumulative = cumulative_trapezoid(spectral_power, x=data.energy, initial=0)
         power_total = power_cumulative[-1]
     units_power_density = "W/mm2"
     units_power_cumulative = "W"
