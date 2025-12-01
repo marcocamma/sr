@@ -95,7 +95,7 @@ def e_beam(lattice="EBS"):
 
 
 def srw_ebeam(ebeam_dict):
-    import srwlib
+    from srwpy import srwlib
 
     # ***********Electron Beam
     eBeam = srwlib.SRWLPartBeam()

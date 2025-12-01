@@ -131,6 +131,7 @@ def _photon_flux_density_helper(data):
     to_add = dict(
         spectral_power_density=spectral_power_density,
         power_density=power_density,
+        power_cumulative=power_cumulative,
         power_total=power_total,
         spectral_photon_flux_max=data.spectral_photon_flux.max(),
         spectral_photon_flux_at_max=data.energy[np.argmax(data.spectral_photon_flux)],
@@ -237,7 +238,7 @@ class Undulator:
 
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
-        import srwlib
+        from srwpy import srwlib
 
         ebeam = beam.srw_ebeam(self.ebeam)
         harmB = srwlib.SRWLMagFldH()  # magnetic field harmonic
@@ -352,8 +353,8 @@ class Undulator:
             harmonic = pars["harmonic"]
         if isinstance(gap, str) and gap == "min":
             gap = self.min_gap
-        import srwlib
-        import srwlpy
+        from srwpy import srwlib
+        from srwpy import srwlpy
 
         if isinstance(v, (float, int)):
             v = [-v / 2, v / 2]
@@ -449,13 +450,17 @@ class Undulator:
         abs_filter : None or object with calc_transmission(energy_kev)
                      method
         """
-        import srwlib
-        import srwlpy
+        from srwpy import srwlib
+        from srwpy import srwlpy
 
         if energy is not None:
             pars = self.find_harmonic_and_gap(
                 energy, sort_harmonics=True, use_srw=True
-            )[0]
+            )
+            if len(pars) == 0:
+                return None
+            else:
+                pars = pars[0]
             gap = pars["gap"]
             # harmonic will be determined below
 
@@ -1123,7 +1128,8 @@ class Undulator:
                 best.append(
                     dict(harmonic=harmonic, gap=gap, flux=flux, brilliance=brilliance)
                 )
-            except:
+            except Exception as e:
+                print("Could not find gap, error was",e)
                 pass
         if sort_harmonics:
             best = sorted(best, reverse=True, key=lambda x: x.get("brilliance"))
@@ -1272,26 +1278,33 @@ _id10_u35a = functools.partial(
     b_field, halbach_coeff=2.0028, b_coeff=1.0015, period=34.984
 )
 id10_u35a = Undulator(
-    length=1.6, gap_to_b=_id10_u35a, period=34.984, min_gap=12, name="u35a"
+    length=1.6, gap_to_b=_id10_u35a, period=34.984, min_gap=10, name="u35a"
 )
 
 _id10_u35b = functools.partial(
     b_field, halbach_coeff=2.0786, b_coeff=1.0276, period=35.225
 )
 id10_u35b = Undulator(
-    length=1.6, gap_to_b=_id10_u35b, period=35.225, min_gap=12, name="u35b"
+    length=1.6, gap_to_b=_id10_u35b, period=35.225, min_gap=10, name="u35b"
 )
 
 _id10_u27b = functools.partial(
     b_field, halbach_coeff=2.0411, b_coeff=1.0237, period=27.203
 )
 id10_u27b = Undulator(
-    length=1.6, gap_to_b=_id10_u27b, period=27.203, min_gap=12, name="u27b"
+    length=1.6, gap_to_b=_id10_u27b, period=27.203, min_gap=10, name="u27b"
 )
+
+id10_u27b_highb = Undulator(
+    elattice = "esrf_highb",
+    length=1.6, gap_to_b=_id10_u27b, period=27.203, min_gap=10, name="u27b"
+)
+
+
 
 _id10_u27c = functools.partial(
     b_field, halbach_coeff=1.9084, b_coeff=1.0061, period=27.219
 )
 id10_u27c = Undulator(
-    length=1.6, gap_to_b=_id10_u27c, period=27.219, min_gap=12, name="u27b"
+    length=1.6, gap_to_b=_id10_u27c, period=27.219, min_gap=10, name="u27c"
 )

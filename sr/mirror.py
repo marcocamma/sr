@@ -128,6 +128,13 @@ id18_mirrors = [
     Mirror(material="Pt", rho=_bulk_densities["Pt"] * _density_factor["Pt"]),
 ]
 
+id10_mirrors = [
+    Mirror(material="Si", rho=_bulk_densities["Si"] * _density_factor["Si"]),
+    Mirror(material="Pd", rho=_bulk_densities["Pd"] * _density_factor["Pd"]),
+    Mirror(material="Pt", rho=_bulk_densities["Pt"] * _density_factor["Pt"]),
+]
+
+
 
 def find_mirror(
     E,
